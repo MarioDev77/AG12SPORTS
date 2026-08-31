@@ -59,6 +59,8 @@ const ProductSchema = z.object({
   stock_qty: z.number().int().min(0).optional().default(0),
   is_active: z.boolean().optional().default(true),
   is_featured: z.boolean().optional().default(false),
+  // ── Etapa 18: disponibilidade para pedidos (chuteiras/variantes) ──
+  available_for_order: z.boolean().optional().default(false),
   // ── Novos campos (etapa 6) — todos opcionais, não quebram payloads antigos ──
   sku: z.string().min(1).max(60).nullable().optional(),
   weight_grams: z.number().int().min(0).nullable().optional(),
@@ -91,6 +93,7 @@ function parseMultipartBody(body) {
   if (out.stock_qty) out.stock_qty = Number(out.stock_qty);
   if (out.is_active !== undefined) out.is_active = out.is_active === 'true' || out.is_active === '1';
   if (out.is_featured !== undefined) out.is_featured = out.is_featured === 'true' || out.is_featured === '1';
+  if (out.available_for_order !== undefined) out.available_for_order = out.available_for_order === 'true' || out.available_for_order === '1';
   if (out.sizes_json && typeof out.sizes_json === 'string') {
     try { out.sizes_json = JSON.parse(out.sizes_json); } catch { /* deixa falhar no zod */ }
   }
@@ -243,7 +246,7 @@ router.get('/products', async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT p.id, p.name, p.brand, c.slug AS category, p.price, p.old_price,
               p.image_url, p.description AS \`desc\`, p.sizes_json, p.stock_qty,
-              p.is_active, p.is_featured, ${IMAGES_SUBQUERY}
+              p.is_active, p.is_featured, p.available_for_order, ${IMAGES_SUBQUERY}
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id
        ${where}
@@ -321,11 +324,12 @@ async function insertProduct(d, categoryId) {
   const [result] = await pool.execute(
     `INSERT INTO products
       (category_id, name, brand, price, old_price, image_url, description, sizes_json,
-       stock_qty, is_active, is_featured, sku, weight_grams, length_cm, width_cm, height_cm)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       stock_qty, is_active, is_featured, available_for_order, sku, weight_grams, length_cm, width_cm, height_cm)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       categoryId, d.name, d.brand, d.price, d.old_price ?? null, d.image_url,
       d.description, JSON.stringify(d.sizes_json), d.stock_qty, d.is_active ? 1 : 0, d.is_featured ? 1 : 0,
+      d.available_for_order ? 1 : 0,
       d.sku ?? null, d.weight_grams ?? null, d.length_cm ?? null, d.width_cm ?? null, d.height_cm ?? null,
     ]
   );
@@ -425,6 +429,7 @@ router.patch('/products/:id', (req, res, next) => {
       if (d.stock_qty !== undefined)   { fields.push('stock_qty = ?');   values.push(d.stock_qty); }
       if (d.is_active !== undefined)   { fields.push('is_active = ?');   values.push(d.is_active ? 1 : 0); }
       if (d.is_featured !== undefined) { fields.push('is_featured = ?'); values.push(d.is_featured ? 1 : 0); }
+      if (d.available_for_order !== undefined) { fields.push('available_for_order = ?'); values.push(d.available_for_order ? 1 : 0); }
       if (d.sku !== undefined)          { fields.push('sku = ?');          values.push(d.sku); }
       if (d.weight_grams !== undefined) { fields.push('weight_grams = ?'); values.push(d.weight_grams); }
       if (d.length_cm !== undefined)    { fields.push('length_cm = ?');    values.push(d.length_cm); }
@@ -634,6 +639,95 @@ router.delete('/products/:id/images/:imageId', async (req, res, next) => {
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     return next(err);
+  }
+});
+
+// ── Variantes de tamanho/estoque (etapa 18) ────────────────────────────────
+// Sempre que as variantes de um produto mudam, sizes_json e stock_qty são
+// recalculados a partir delas — nenhum outro lugar do sistema (storefront,
+// filtros, dashboard) precisa mudar pra continuar lendo esses dois campos.
+async function syncProductAggregatesFromVariants(conn, productId) {
+  const [variants] = await conn.query(
+    'SELECT size, stock FROM product_variants WHERE product_id = ? AND active = 1 ORDER BY id ASC',
+    [productId]
+  );
+  const sizesWithStock = variants.filter((v) => v.stock > 0).map((v) => v.size);
+  const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
+  await conn.execute(
+    'UPDATE products SET sizes_json = ?, stock_qty = ? WHERE id = ?',
+    [JSON.stringify(sizesWithStock), totalStock, productId]
+  );
+}
+
+const VariantSchema = z.object({
+  size: z.string().trim().min(1).max(20),
+  stock: z.coerce.number().int().min(0),
+  active: z.boolean().optional().default(true),
+  sku: z.string().trim().max(60).optional().nullable(),
+});
+
+router.get('/products/:id/variants', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'product id');
+    const [rows] = await pool.query(
+      'SELECT id, size, sku, stock, active FROM product_variants WHERE product_id = ? ORDER BY id ASC',
+      [id]
+    );
+    return res.json(rows);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// PUT — substitui o conjunto inteiro de variantes do produto (é assim que o
+// admin edita: uma lista de linhas tamanho+estoque, salvas juntas). Roda em
+// transação: se algo falhar, nada é gravado.
+router.put('/products/:id/variants', async (req, res, next) => {
+  const conn = await pool.getConnection();
+  try {
+    const id = parsePositiveInt(req.params.id, 'product id');
+
+    const [[product]] = await conn.query('SELECT id FROM products WHERE id = ?', [id]);
+    if (!product) return res.status(404).json({ error: 'Produto não encontrado' });
+
+    const rawList = Array.isArray(req.body?.variants) ? req.body.variants : [];
+    const parsed = rawList.map((v) => VariantSchema.parse(v));
+
+    const sizesSeen = new Set();
+    for (const v of parsed) {
+      if (sizesSeen.has(v.size)) {
+        return res.status(400).json({ error: `Tamanho duplicado: ${v.size}` });
+      }
+      sizesSeen.add(v.size);
+    }
+
+    await conn.beginTransaction();
+
+    await conn.execute('DELETE FROM product_variants WHERE product_id = ?', [id]);
+    for (const v of parsed) {
+      await conn.execute(
+        'INSERT INTO product_variants (product_id, size, sku, stock, active) VALUES (?, ?, ?, ?, ?)',
+        [id, v.size, v.sku || null, v.stock, v.active ? 1 : 0]
+      );
+    }
+
+    await syncProductAggregatesFromVariants(conn, id);
+
+    await conn.commit();
+
+    const [rows] = await conn.query(
+      'SELECT id, size, sku, stock, active FROM product_variants WHERE product_id = ? ORDER BY id ASC',
+      [id]
+    );
+    return res.json(rows);
+  } catch (err) {
+    await conn.rollback();
+    if (err.name === 'ZodError') return res.status(400).json({ error: 'Variante inválida', details: err.errors });
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  } finally {
+    conn.release();
   }
 });
 
