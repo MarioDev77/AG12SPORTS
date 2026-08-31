@@ -18,6 +18,7 @@ const MAX_IMAGES   = 5;
 const EMPTY_FORM = {
   name: '', brand: '', category: 'society', price: '', oldPrice: '',
   description: '', sizes: '', stock_qty: 0, is_active: true, is_featured: false,
+  available_for_order: false,
 };
 
 const EMPTY_FILTERS = { category: '', brand: '', minPrice: '', maxPrice: '', size: '' };
@@ -52,6 +53,14 @@ export default function AdminProdutosPage() {
   const [galleryImages, setGalleryImages] = useState([]);
   const [pendingFiles,  setPendingFiles]  = useState([]);
   const [galleryBusy,   setGalleryBusy]   = useState(false);
+
+  // ── Variantes de tamanho/estoque (etapa 18) ─────────────────────────────
+  // Só existem depois que o produto foi criado (precisam de product_id),
+  // igual à galeria de imagens: carregadas ao abrir a edição, salvas com
+  // seu próprio botão (PUT substitui a lista inteira de uma vez).
+  const [variantRows,   setVariantRows]   = useState([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [variantsBusy,  setVariantsBusy]  = useState(false);
 
   // Produto marcado para exclusão — abre o modal de confirmação.
   // null = nenhum modal aberto.
@@ -120,6 +129,7 @@ export default function AdminProdutosPage() {
     pendingFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     setPendingFiles([]);
     setGalleryImages([]);
+    setVariantRows([]);
     setShowForm(false);
   }
 
@@ -128,6 +138,7 @@ export default function AdminProdutosPage() {
     setFormData(EMPTY_FORM);
     setGalleryImages([]);
     setPendingFiles([]);
+    setVariantRows([]);
     setFormError('');
     setShowForm(true);
   }
@@ -145,6 +156,7 @@ export default function AdminProdutosPage() {
       stock_qty:   product.stock_qty ?? 0,
       is_active:   product.is_active === undefined ? true : Boolean(product.is_active),
       is_featured: !!product.is_featured,
+      available_for_order: !!product.available_for_order,
     });
     // Galeria já salva no banco — normaliza pra ordem de exibição.
     const existingImages = (product.images && product.images.length > 0)
@@ -154,6 +166,7 @@ export default function AdminProdutosPage() {
     setPendingFiles([]);
     setFormError('');
     setShowForm(true);
+    loadVariants(product.id);
   }
 
   function handleFieldChange(field, value) {
@@ -278,6 +291,64 @@ export default function AdminProdutosPage() {
     }
   }
 
+  // ── Variantes de tamanho/estoque (etapa 18) ─────────────────────────────
+  async function loadVariants(productId) {
+    setVariantsLoading(true);
+    try {
+      const rows = await adminRequest(`/products/${productId}/variants`);
+      setVariantRows(rows.map((v) => ({ ...v, active: !!v.active })));
+    } catch (err) {
+      showToast(err.message || 'Erro ao carregar tamanhos. Tente novamente.', 'error');
+      setVariantRows([]);
+    } finally {
+      setVariantsLoading(false);
+    }
+  }
+
+  function addVariantRow() {
+    setVariantRows((prev) => [...prev, { size: '', stock: 0, active: true }]);
+  }
+
+  function updateVariantRow(index, field, value) {
+    setVariantRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  }
+
+  function removeVariantRow(index) {
+    setVariantRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function saveVariants() {
+    const sizes = variantRows.map((v) => v.size.trim());
+    if (sizes.some((s) => !s)) {
+      showToast('Preencha o tamanho de todas as linhas.', 'error');
+      return;
+    }
+    if (new Set(sizes).size !== sizes.length) {
+      showToast('Há tamanhos duplicados na lista.', 'error');
+      return;
+    }
+
+    setVariantsBusy(true);
+    try {
+      const saved = await adminRequest(`/products/${editingId}/variants`, {
+        method: 'PUT',
+        body: {
+          variants: variantRows.map((v) => ({
+            size: v.size.trim(),
+            stock: Number(v.stock) || 0,
+            active: !!v.active,
+          })),
+        },
+      });
+      setVariantRows(saved.map((v) => ({ ...v, active: !!v.active })));
+      showToast('Tamanhos e estoque salvos.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Erro ao salvar tamanhos. Tente novamente.', 'error');
+    } finally {
+      setVariantsBusy(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
@@ -303,6 +374,7 @@ export default function AdminProdutosPage() {
       fd.append('stock_qty',   formData.stock_qty);
       fd.append('is_active',   formData.is_active ? '1' : '0');
       fd.append('is_featured', formData.is_featured ? '1' : '0');
+      fd.append('available_for_order', formData.available_for_order ? '1' : '0');
       // No modo criação, a primeira foto pendente vira a imagem de capa
       // (o restante da galeria sobe logo depois que o produto existe).
       if (!editingId && pendingFiles.length > 0) {
@@ -531,7 +603,81 @@ export default function AdminProdutosPage() {
                     <input type="checkbox" checked={formData.is_featured} onChange={(e) => handleFieldChange('is_featured', e.target.checked)} />
                     Destaque
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={formData.available_for_order} onChange={(e) => handleFieldChange('available_for_order', e.target.checked)} />
+                    Disponível para pedidos
+                  </label>
                 </div>
+
+                {editingId && formData.available_for_order && (
+                  <div className="field-full" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Tamanhos e estoque</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+                      Cada linha é um tamanho com seu próprio estoque. Tamanhos com estoque 0 aparecem indisponíveis pro cliente.
+                    </p>
+
+                    {variantsLoading ? (
+                      <p style={{ fontSize: 13, color: 'var(--muted)' }}>Carregando…</p>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {variantRows.map((row, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                placeholder="Tamanho (ex: 38)"
+                                className="field-input"
+                                style={{ maxWidth: 140 }}
+                                value={row.size}
+                                onChange={(e) => updateVariantRow(i, 'size', e.target.value)}
+                              />
+                              <input
+                                type="number"
+                                placeholder="Estoque"
+                                className="field-input"
+                                style={{ maxWidth: 110 }}
+                                min="0"
+                                value={row.stock}
+                                onChange={(e) => updateVariantRow(i, 'stock', Number(e.target.value))}
+                              />
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={row.active} onChange={(e) => updateVariantRow(i, 'active', e.target.checked)} />
+                                Ativo
+                              </label>
+                              <button type="button" onClick={() => removeVariantRow(i)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 8px', color: 'var(--red, #ef4444)' }}>
+                                Remover
+                              </button>
+                            </div>
+                          ))}
+                          {variantRows.length === 0 && (
+                            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum tamanho cadastrado ainda.</p>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <button type="button" onClick={addVariantRow} className="btn-secondary" style={{ fontSize: 13 }}>
+                            + Adicionar tamanho
+                          </button>
+                          <button type="button" onClick={saveVariants} className="btn-primary" style={{ fontSize: 13 }} disabled={variantsBusy}>
+                            {variantsBusy ? 'Salvando…' : 'Salvar tamanhos'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {editingId && formData.available_for_order && (
+                  <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
+                    Os campos "Tamanhos" e "Estoque" acima continuam existindo para compatibilidade, mas para produtos com pedidos ativados o estoque real é o desta seção.
+                  </p>
+                )}
+
+                {!editingId && (
+                  <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Salve o produto primeiro; depois, ao editá-lo, você poderá cadastrar os tamanhos e o estoque de cada um aqui.
+                  </p>
+                )}
 
                 {formError && <div className="error-box field-full">{formError}</div>}
 
