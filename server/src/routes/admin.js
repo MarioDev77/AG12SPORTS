@@ -765,6 +765,132 @@ router.delete('/products/:id', async (req, res, next) => {
 });
 
 // ─── Usuários ─────────────────────────────────────────────────────────────────
+// ── Pedidos (etapa 19) ──────────────────────────────────────────────────────
+const { getAllOrders, getOrderByIdAndUser, countUnseenOrders, markOrderViewed, updateOrderStatus } = require('../services/orders.service');
+
+const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+// GET /manage/orders/unseen-count — pro sininho/contador de notificação no painel
+router.get('/orders/unseen-count', async (req, res, next) => {
+  try {
+    const count = await countUnseenOrders();
+    return res.json({ count });
+  } catch (err) { return next(err); }
+});
+
+router.get('/orders', async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const status = (req.query.status || '').toString().trim() || undefined;
+    const { orders, total } = await getAllOrders({ page, limit, status });
+    return res.json({ orders, total });
+  } catch (err) { return next(err); }
+});
+
+router.get('/orders/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'order id');
+    const order = await getOrderByIdAndUser(id);
+    if (!order) return res.status(404).json({ error: 'Not found' });
+    return res.json({ order });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// PATCH /manage/orders/:id/viewed — marca como visto (limpa a notificação)
+router.patch('/orders/:id/viewed', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'order id');
+    await markOrderViewed(id);
+    return res.json({ viewed: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+router.patch('/orders/:id/status', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'order id');
+    const status = (req.body?.status || '').toString();
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Status inválido. Use um de: ${ORDER_STATUSES.join(', ')}` });
+    }
+    const updated = await updateOrderStatus(id, status);
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    return res.json({ updated: true, status });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// ── Regras de frete (etapa 19) ──────────────────────────────────────────────
+const ShippingRegionSchema = z.object({
+  uf: z.string().trim().regex(/^([A-Za-z]{2}|\*)$/, 'UF inválida (sigla de 2 letras, ou * para regra padrão)').transform((v) => v.toUpperCase()),
+  delivery_min_days: z.coerce.number().int().min(0),
+  delivery_max_days: z.coerce.number().int().min(0),
+  shipping_cost: z.coerce.number().min(0),
+  active: z.boolean().optional().default(true),
+});
+
+router.get('/shipping-regions', async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, uf, delivery_min_days, delivery_max_days, shipping_cost, active FROM shipping_regions ORDER BY (uf = "*") ASC, uf ASC'
+    );
+    return res.json(rows);
+  } catch (err) { return next(err); }
+});
+
+router.post('/shipping-regions', async (req, res, next) => {
+  try {
+    const parsed = ShippingRegionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    const d = parsed.data;
+    const [result] = await pool.execute(
+      `INSERT INTO shipping_regions (uf, delivery_min_days, delivery_max_days, shipping_cost, active)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         delivery_min_days = VALUES(delivery_min_days),
+         delivery_max_days = VALUES(delivery_max_days),
+         shipping_cost = VALUES(shipping_cost),
+         active = VALUES(active)`,
+      [d.uf, d.delivery_min_days, d.delivery_max_days, d.shipping_cost, d.active ? 1 : 0]
+    );
+    return res.status(201).json({ id: result.insertId || undefined, ...d });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/shipping-regions/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'shipping region id');
+    const parsed = ShippingRegionSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    const d = parsed.data;
+
+    const fields = [];
+    const values = [];
+    if (d.uf !== undefined) { fields.push('uf = ?'); values.push(d.uf); }
+    if (d.delivery_min_days !== undefined) { fields.push('delivery_min_days = ?'); values.push(d.delivery_min_days); }
+    if (d.delivery_max_days !== undefined) { fields.push('delivery_max_days = ?'); values.push(d.delivery_max_days); }
+    if (d.shipping_cost !== undefined) { fields.push('shipping_cost = ?'); values.push(d.shipping_cost); }
+    if (d.active !== undefined) { fields.push('active = ?'); values.push(d.active ? 1 : 0); }
+    if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    values.push(id);
+    const [result] = await pool.execute(`UPDATE shipping_regions SET ${fields.join(', ')} WHERE id = ?`, values);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    return res.json({ updated: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
 router.get('/users', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);

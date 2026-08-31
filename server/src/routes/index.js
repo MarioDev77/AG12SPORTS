@@ -18,12 +18,20 @@ const express = require('express');
 const authRouter = require('./auth');
 const productsRouter = require('./products');
 const adminRouter = require('./admin');
+const ordersRouter = require('./orders');
+const cepRouter = require('./cep');
+const shippingRouter = require('./shipping');
+const addressesRouter = require('./addresses');
 
 const router = express.Router();
 
 // ─── Rotas públicas / autenticadas normais ────────────────────────────────────
 router.use('/auth', authRouter);
 router.use('/products', productsRouter);
+router.use('/orders', ordersRouter);
+router.use('/cep', cepRouter);
+router.use('/shipping', shippingRouter);
+router.use('/addresses', addressesRouter);
 
 // ─── Painel admin — prefixo oculto, configurável via .env ────────────────────
 const ADMIN_ROUTE_PREFIX = process.env.ADMIN_ROUTE_PREFIX || '/manage';
