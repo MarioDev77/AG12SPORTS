@@ -18,6 +18,11 @@ const STEPS = [
   { id: 4, label: 'Revisão' },
 ];
 
+const BRAZIL_UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
+
 const PAYMENT_OPTIONS = [
   { value: 'pix', name: 'Pix', desc: 'Aprovação imediata' },
   { value: 'cartao', name: 'Cartão', desc: 'Crédito ou débito' },
@@ -152,7 +157,8 @@ export default function CheckoutPage() {
     if (!name || !cpf || !email || !phone) return 'Preencha seus dados de contato.';
     if (onlyDigits(cpf).length !== 11) return 'CPF inválido.';
     if (!cep || onlyDigits(cep).length !== 8) return 'CEP inválido.';
-    if (!street || !number || !bairro || !city || !state) return 'Complete o endereço de entrega.';
+    if (!street || !number || !bairro || !city) return 'Complete o endereço de entrega.';
+    if (!state || !BRAZIL_UFS.includes(state.toUpperCase())) return 'Selecione o estado (UF) do endereço.';
     return '';
   }
 
@@ -417,13 +423,16 @@ export default function CheckoutPage() {
                 <input className="field-input" placeholder="Bairro" {...field('bairro')} />
                 <input className="field-input" placeholder="Complemento (opcional)" {...field('complement')} />
                 <input className="field-input" placeholder="Cidade" {...field('city')} />
-                <input
+                <select
                   className="field-input"
-                  placeholder="UF"
-                  maxLength={2}
                   value={form.state}
-                  onChange={(e) => setForm((f) => ({ ...f, state: e.target.value.toUpperCase() }))}
-                />
+                  onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
+                >
+                  <option value="">UF</option>
+                  {BRAZIL_UFS.map((uf) => (
+                    <option key={uf} value={uf}>{uf}</option>
+                  ))}
+                </select>
               </div>
               {cepStatus === 'loading' && <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>Consultando CEP…</p>}
 
