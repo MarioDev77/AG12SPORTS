@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { brl } from '@/lib/format';
+import { apiRequest } from '@/lib/api';
+import { brl, maskCep, onlyDigits } from '@/lib/format';
 
 // Mesmos dados de contato do app.js original — centralizar aqui evita
 // duplicar a constante em vários componentes.
@@ -14,13 +16,49 @@ const IG_URL = 'https://www.instagram.com/ag12sports/';
  * CartPanel — réplica do #cartOverlay/.cart-panel do index.html, com a
  * lógica de renderCartPanel() do app.js. `open`/`onClose` controlam a
  * visibilidade (equivalente à classe .open alternada por toggleCart()).
+ *
+ * Inclui uma calculadora de frete inline (CEP → UF → frete/prazo), igual
+ * ao padrão de carrinho de e-commerce (ex.: "Meios de envio" na Shopee/ML),
+ * pra o cliente já ver o total com frete antes de ir pro checkout.
  */
 export default function CartPanel({ open, onClose }) {
   const router = useRouter();
   const { items, subtotal, updateQty, removeFromCart } = useCart();
 
+  const [cep, setCep] = useState('');
+  const [shipping, setShipping] = useState(null); // null | { cost, minDays, maxDays }
+  const [shipStatus, setShipStatus] = useState('idle'); // idle | loading | error
+
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const wppText = encodeURIComponent('Olá! Gostaria de finalizar minha compra na AG12 Sports.');
+
+  async function handleCalcShipping() {
+    const digits = onlyDigits(cep);
+    if (digits.length !== 8) return;
+    setShipStatus('loading');
+    try {
+      const addr = await apiRequest(`/cep/${digits}`);
+      const result = await apiRequest('/shipping/calculate', { method: 'POST', body: { state: addr.uf } });
+      if (!result.available) {
+        setShipStatus('error');
+        setShipping(null);
+        return;
+      }
+      setShipping({ cost: result.shippingCost, minDays: result.estimatedMinDays, maxDays: result.estimatedMaxDays });
+      setShipStatus('idle');
+    } catch {
+      setShipStatus('error');
+      setShipping(null);
+    }
+  }
+
+  function handleChangeCep() {
+    setShipping(null);
+    setShipStatus('idle');
+  }
+
+  const shippingCost = shipping ? shipping.cost : 0;
+  const total = Number((subtotal + shippingCost).toFixed(2));
 
   function handleCheckout() {
     onClose();
@@ -68,14 +106,70 @@ export default function CartPanel({ open, onClose }) {
 
         {items.length > 0 && (
           <div id="cartFooter" style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+
+            {/* Meios de envio */}
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <iconify-icon className="iconify" icon="mdi:truck-outline" style={{ fontSize: 15 }} />
+                Meios de envio
+              </p>
+
+              {!shipping && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="field-input"
+                    placeholder="Seu CEP"
+                    value={cep}
+                    onChange={(e) => setCep(maskCep(e.target.value))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCalcShipping()}
+                    style={{ flex: 1, fontSize: 13 }}
+                  />
+                  <button type="button" onClick={handleCalcShipping} className="btn-secondary" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }} disabled={shipStatus === 'loading'}>
+                    {shipStatus === 'loading' ? 'Calculando…' : 'Calcular'}
+                  </button>
+                </div>
+              )}
+
+              {shipStatus === 'error' && (
+                <p style={{ fontSize: 12, color: '#dc2626', marginTop: 6 }}>Não foi possível calcular o frete para esse CEP.</p>
+              )}
+
+              {shipping && (
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                    Entregas para o CEP: {cep}{' '}
+                    <button type="button" onClick={handleChangeCep} style={{ background: 'none', border: 'none', color: 'var(--amber-dk)', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: 12 }}>
+                      Alterar CEP
+                    </button>
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700 }}>{shipping.cost === 0 ? 'Frete grátis' : 'Envio a domicílio'}</p>
+                      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Chega em {shipping.minDays}–{shipping.maxDays} dias úteis</p>
+                    </div>
+                    <strong style={{ fontSize: 13 }}>{shipping.cost === 0 ? 'Grátis' : brl(shipping.cost)}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Resumo */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--muted)', marginBottom: 4 }}>
+              <span>Subtotal</span>
+              <span>{brl(subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+              <span>Frete</span>
+              <span>{shipping ? (shipping.cost === 0 ? 'Grátis' : brl(shipping.cost)) : 'a calcular'}</span>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Total</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Total</span>
               <strong style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--amber-dk)' }}>
-                {brl(subtotal)}
+                {brl(total)}
               </strong>
             </div>
             <button onClick={handleCheckout} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-              Finalizar compra
+              Iniciar Compra
             </button>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
               <a

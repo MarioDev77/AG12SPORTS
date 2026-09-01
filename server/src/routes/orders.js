@@ -89,6 +89,12 @@ router.get('/:id', authJwt, async (req, res, next) => {
       return res.status(404).json({ error: 'Not found' });
     }
 
+    // Cliente não vê o pedido (nem por ID direto) enquanto o admin não
+    // confirmar o pagamento — mesma regra da listagem em getOrdersByUser.
+    if (!isAdmin && order.status === 'pending') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
     return res.json({ order });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

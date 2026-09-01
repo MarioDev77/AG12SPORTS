@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWish } from '@/context/WishContext';
+import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { apiRequest } from '@/lib/api';
 import { brl } from '@/lib/format';
@@ -26,12 +27,14 @@ export default function ProdutoPage() {
   const router    = useRouter();
   const showToast = useToast();
   const { isWished, toggleWish } = useWish();
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
   const [selectedSize, setSelectedSize] = useState(null);
+  const [qty, setQty] = useState(1);
 
   const [reviews,       setReviews]       = useState(null);
   const [reviewsStatus, setReviewsStatus] = useState('loading');
@@ -69,6 +72,27 @@ export default function ProdutoPage() {
       })
       .catch(() => setReviewsStatus('error'));
   }, [id]);
+
+  function handleBuyNow() {
+    if (!product) return;
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      showToast('Selecione um tamanho antes de continuar.', 'error');
+      return;
+    }
+    addToCart(product, selectedSize, qty);
+    router.push('/checkout');
+  }
+
+  function handleAddToCart() {
+    if (!product) return;
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      showToast('Selecione um tamanho antes de continuar.', 'error');
+      return;
+    }
+    addToCart(product, selectedSize, qty);
+    showToast(`${product.name} adicionado ao carrinho`, 'success');
+    setQty(1);
+  }
 
   function handleWish() {
     if (!product) return;
@@ -186,11 +210,36 @@ export default function ProdutoPage() {
             </div>
           )}
 
-          {/* Ações */}
+          {/* Quantidade */}
+          <div style={{ marginBottom: 20 }}>
+            <p className="modal-sizes-label">Quantidade</p>
+            <div className="qty-row">
+              <button type="button" className="qty-btn" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Diminuir quantidade">−</button>
+              <span className="qty-display">{qty}</span>
+              <button type="button" className="qty-btn" onClick={() => setQty((q) => Math.min(10, q + 1))} aria-label="Aumentar quantidade">+</button>
+            </div>
+          </div>
+
+          {/* Ações principais */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+            <button onClick={handleBuyNow} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+              <iconify-icon className="iconify" icon="mdi:flash-outline" style={{ fontSize: 16 }} />
+              Comprar agora
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
-            <button onClick={handleWish} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+            <button onClick={handleAddToCart} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
+              <iconify-icon className="iconify" icon="mdi:cart-plus" style={{ fontSize: 16 }} />
+              Adicionar ao carrinho
+            </button>
+            <button
+              onClick={handleWish}
+              className="btn-secondary"
+              title={wished ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              aria-label={wished ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+            >
               <iconify-icon className="iconify" icon={wished ? 'mdi:heart' : 'mdi:heart-outline'} style={{ fontSize: 16 }} />
-              {wished ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             </button>
             <button
               onClick={handleCopyLink}
@@ -200,7 +249,6 @@ export default function ProdutoPage() {
               style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
             >
               <iconify-icon className="iconify" icon="mdi:link-variant" style={{ fontSize: 16 }} />
-              Copiar link
             </button>
           </div>
 

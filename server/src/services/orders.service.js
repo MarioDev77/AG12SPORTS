@@ -272,11 +272,17 @@ async function getOrderByIdAndUser(orderId) {
 
 /**
  * Lista os pedidos de um cliente (usado em "Minha conta" > Meus pedidos).
+ *
+ * IMPORTANTE: pedidos com status 'pending' (aguardando confirmação manual
+ * de pagamento pelo admin) NÃO aparecem aqui de propósito — o cliente só
+ * vê o pedido em "Meus pedidos" depois que o admin confirma a venda.
+ * Antes disso, o pedido já existe no banco e já aparece no painel admin
+ * (é assim que o admin sabe que precisa confirmar).
  */
 async function getOrdersByUser(userId) {
   const [rows] = await pool.query(
     `SELECT id, status, total_amount, estimated_delivery_min_days, estimated_delivery_max_days, created_at
-     FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
+     FROM orders WHERE user_id = ? AND status <> 'pending' ORDER BY created_at DESC`,
     [userId]
   );
   return rows.map((r) => ({

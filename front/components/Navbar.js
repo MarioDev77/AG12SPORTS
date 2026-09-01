@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWish } from '@/context/WishContext';
+import { useCart } from '@/context/CartContext';
 
 const CATEGORIES = [
   { slug: 'society', label: 'Society' },
@@ -20,11 +21,12 @@ const CATEGORIES = [
  * menu mobile. onOpenCart/onOpenWish vêm de fora porque os painéis (cart
  * panel / wish panel) vivem no layout da loja, não na navbar.
  */
-export default function Navbar({ onOpenWish }) {
+export default function Navbar({ onOpenWish, onOpenCart }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navSearch, setNavSearch] = useState('');
   const { count: wishCount } = useWish();
+  const { count: cartCount } = useCart();
   const router = useRouter();
 
   useEffect(() => {
@@ -76,6 +78,13 @@ export default function Navbar({ onOpenWish }) {
               <iconify-icon className="iconify" icon="mdi:heart-outline" style={{ fontSize: 18 }} />
               <span aria-label="favoritos salvos">{wishCount > 0 ? wishCount : ''}</span>
             </button>
+            <button className="nav-cart-btn" onClick={onOpenCart} aria-label="Carrinho de compras" style={{ position: 'relative' }} title="Carrinho">
+              <iconify-icon className="iconify" icon="mdi:cart-outline" style={{ fontSize: 18 }} />
+              <span aria-label="itens no carrinho">{cartCount > 0 ? cartCount : ''}</span>
+            </button>
+            <Link href="/conta" className="nav-cart-btn" aria-label="Minha conta" title="Minha conta" style={{ textDecoration: 'none' }}>
+              <iconify-icon className="iconify" icon="mdi:account-outline" style={{ fontSize: 18 }} />
+            </Link>
             <button
               className="nav-hamburger"
               onClick={() => setMobileOpen((v) => !v)}

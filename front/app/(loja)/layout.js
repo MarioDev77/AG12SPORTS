@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import WishPanel from '@/components/WishPanel';
+import CartPanel from '@/components/CartPanel';
 import { useToast } from '@/context/ToastContext';
 
 /**
@@ -12,11 +13,12 @@ import { useToast } from '@/context/ToastContext';
  */
 export default function StoreLayout({ children }) {
   const [wishOpen, setWishOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const showToast = useToast();
 
   return (
     <>
-      <Navbar onOpenWish={() => setWishOpen(true)} />
+      <Navbar onOpenWish={() => setWishOpen(true)} onOpenCart={() => setCartOpen(true)} />
 
       {children}
 
@@ -32,6 +34,7 @@ export default function StoreLayout({ children }) {
       </footer>
 
       <WishPanel open={wishOpen} onClose={() => setWishOpen(false)} onToast={showToast} />
+      <CartPanel open={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   );
 }
