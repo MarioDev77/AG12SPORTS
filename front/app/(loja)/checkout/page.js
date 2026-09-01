@@ -129,6 +129,8 @@ export default function CheckoutPage() {
     setAuthErr('');
     const { name, username, email, phone, password } = authReg;
     if (!name || !username || !email || !password) { setAuthErr('Preencha nome, usuário, e-mail e senha.'); return; }
+    if (username.length < 3) { setAuthErr('O nome de usuário precisa ter pelo menos 3 caracteres.'); return; }
+    if (!/^[\w@.-]+$/.test(username)) { setAuthErr('Nome de usuário só pode ter letras, números, ponto, @, - ou _.'); return; }
     if (password.length < 8) { setAuthErr('A senha precisa ter pelo menos 8 caracteres.'); return; }
     setAuthBusy(true);
     try {
@@ -136,7 +138,10 @@ export default function CheckoutPage() {
       if (phone) payload.phone = phone;
       await register(payload);
     } catch (err) {
-      setAuthErr(err.message || 'Falha ao criar conta.');
+      const msg = err.message === 'Invalid payload'
+        ? 'Verifique os dados: usuário só com letras/números (mín. 3), e-mail válido e senha com 8+ caracteres.'
+        : (err.message || 'Falha ao criar conta.');
+      setAuthErr(msg);
     } finally {
       setAuthBusy(false);
     }
@@ -297,7 +302,7 @@ export default function CheckoutPage() {
             ) : (
               <form onSubmit={handleRegister} className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
                 <input type="text" placeholder="Nome completo" className="field-input" value={authReg.name} onChange={(e) => setAuthReg((r) => ({ ...r, name: e.target.value }))} />
-                <input type="text" placeholder="Nome de usuário" className="field-input" value={authReg.username} onChange={(e) => setAuthReg((r) => ({ ...r, username: e.target.value }))} />
+                <input type="text" placeholder="Nome de usuário (mín. 3 caracteres)" className="field-input" value={authReg.username} onChange={(e) => setAuthReg((r) => ({ ...r, username: e.target.value }))} />
                 <input type="email" placeholder="E-mail" className="field-input" value={authReg.email} onChange={(e) => setAuthReg((r) => ({ ...r, email: e.target.value }))} />
                 <input type="tel" placeholder="Telefone (opcional)" className="field-input" value={authReg.phone} onChange={(e) => setAuthReg((r) => ({ ...r, phone: e.target.value }))} />
                 <input type="password" placeholder="Senha (mín. 8 caracteres)" className="field-input" value={authReg.password} onChange={(e) => setAuthReg((r) => ({ ...r, password: e.target.value }))} />

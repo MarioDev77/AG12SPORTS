@@ -77,6 +77,14 @@ export default function ContaPage() {
       setRegErr('Preencha nome, usuário, e-mail e senha.');
       return;
     }
+    if (regUsername.length < 3) {
+      setRegErr('O nome de usuário precisa ter pelo menos 3 caracteres.');
+      return;
+    }
+    if (!/^[\w@.-]+$/.test(regUsername)) {
+      setRegErr('Nome de usuário só pode ter letras, números, ponto, @, - ou _.');
+      return;
+    }
     if (regPassword.length < 8) {
       setRegErr('A senha precisa ter pelo menos 8 caracteres.');
       return;
@@ -88,7 +96,10 @@ export default function ContaPage() {
       if (phone) payload.phone = phone;
       await register(payload);
     } catch (err) {
-      setRegErr(err.message || 'Falha ao criar conta.');
+      const msg = err.message === 'Invalid payload'
+        ? 'Verifique os dados: usuário só com letras/números (mín. 3), e-mail válido e senha com 8+ caracteres.'
+        : (err.message || 'Falha ao criar conta.');
+      setRegErr(msg);
     } finally {
       setRegistering(false);
     }
@@ -165,7 +176,7 @@ export default function ContaPage() {
                   />
                   <input
                     type="text"
-                    placeholder="Nome de usuário"
+                    placeholder="Nome de usuário (mín. 3 caracteres)"
                     className="field-input"
                     autoComplete="username"
                     value={regData.username}
