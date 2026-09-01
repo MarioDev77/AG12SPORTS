@@ -52,6 +52,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const [cepStatus, setCepStatus] = useState('idle'); // idle | loading | error
+  const [geoStatus, setGeoStatus] = useState('idle'); // idle | loading | error
   const [stepError, setStepError] = useState('');
 
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -80,8 +81,11 @@ export default function CheckoutPage() {
     return { value: form[name], onChange: (e) => setForm((f) => ({ ...f, [name]: e.target.value })) };
   }
 
-  async function handleCepBlur() {
-    const digits = onlyDigits(form.cep);
+  // cepOverride existe pra quando handleUseLocation já sabe o CEP (veio da
+  // localização) e precisa confirmar/completar os dados na hora, sem esperar
+  // o próximo re-render do form pra ler o valor certo.
+  async function handleCepBlur(cepOverride) {
+    const digits = onlyDigits(cepOverride ?? form.cep);
     if (digits.length !== 8) return;
     setCepStatus('loading');
     try {
@@ -98,6 +102,49 @@ export default function CheckoutPage() {
       setCepStatus('error');
       showToast(err.message || 'Não foi possível consultar o CEP.', 'error');
     }
+  }
+
+  // Pede a localização do navegador, converte em endereço aproximado via
+  // /geo/reverse e pré-preenche o formulário — o cliente sempre confere e
+  // pode editar tudo antes de avançar (nunca envia nada sem revisão dele).
+  function handleUseLocation() {
+    if (!navigator.geolocation) {
+      showToast('Seu navegador não suporta localização automática. Preencha o CEP manualmente.', 'error');
+      return;
+    }
+    setGeoStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const addr = await apiRequest(`/geo/reverse?lat=${latitude}&lon=${longitude}`);
+          setForm((f) => ({
+            ...f,
+            cep: addr.cep ? maskCep(addr.cep) : f.cep,
+            street: addr.logradouro || f.street,
+            bairro: addr.bairro || f.bairro,
+            city: addr.cidade || f.city,
+            state: addr.uf || f.state,
+          }));
+          // Se a localização trouxe um CEP, refaz a consulta oficial no ViaCEP
+          // pra confirmar/completar rua e bairro com dado confiável.
+          if (addr.cep) await handleCepBlur(addr.cep);
+          setGeoStatus('idle');
+          showToast('Localização aplicada — confira os dados antes de continuar.', 'success');
+        } catch (err) {
+          setGeoStatus('error');
+          showToast(err.message || 'Não foi possível obter seu endereço a partir da localização.', 'error');
+        }
+      },
+      (err) => {
+        setGeoStatus('error');
+        const msg = err.code === err.PERMISSION_DENIED
+          ? 'Permissão de localização negada — preencha o CEP manualmente.'
+          : 'Não foi possível obter sua localização agora. Preencha o CEP manualmente.';
+        showToast(msg, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
   }
 
   function pickSavedAddress(addr) {
@@ -390,8 +437,26 @@ export default function CheckoutPage() {
                 <input className="field-input field-full" type="email" placeholder="E-mail" {...field('email')} />
               </div>
 
-              <p className="checkout-section-title" style={{ marginTop: 28 }}>Endereço de entrega</p>
-              <p className="checkout-section-sub">Preenchemos rua, bairro e cidade a partir do CEP.</p>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+                <div>
+                  <p className="checkout-section-title" style={{ marginBottom: 4 }}>Endereço de entrega</p>
+                  <p className="checkout-section-sub" style={{ margin: 0 }}>Preenchemos rua, bairro e cidade a partir do CEP.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUseLocation}
+                  disabled={geoStatus === 'loading'}
+                  className="btn-secondary"
+                  style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}
+                >
+                  <iconify-icon
+                    className="iconify"
+                    icon={geoStatus === 'loading' ? 'mdi:loading' : 'mdi:crosshairs-gps'}
+                    style={{ fontSize: 14, animation: geoStatus === 'loading' ? 'spin 1s linear infinite' : 'none' }}
+                  />
+                  {geoStatus === 'loading' ? 'Localizando…' : 'Usar minha localização'}
+                </button>
+              </div>
 
               {savedAddresses.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/app/admin/layout';
-import { brl, orderStatusLabel, ORDER_STATUS_COLORS } from '@/lib/format';
+import { brl, orderStatusLabel, shipmentScopeLabel, ORDER_STATUS_COLORS } from '@/lib/format';
 
 const LIMIT = 20;
 
@@ -21,6 +21,11 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState('loading');
 
+  const [tracking, setTracking] = useState({ shipmentScope: 'nacional', trackingCarrier: '', trackingCode: '', trackingUrl: '' });
+  const [savingTracking, setSavingTracking] = useState(false);
+  const [trackingErr, setTrackingErr] = useState('');
+  const [trackingSaved, setTrackingSaved] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setStatus('loading');
@@ -28,6 +33,12 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
       .then((data) => {
         if (cancelled) return;
         setOrder(data.order);
+        setTracking({
+          shipmentScope: data.order.shipmentScope || 'nacional',
+          trackingCarrier: data.order.tracking?.carrier || '',
+          trackingCode: data.order.tracking?.code || '',
+          trackingUrl: data.order.tracking?.url || '',
+        });
         setStatus('ready');
         // Marca como visto ao abrir os detalhes — limpa a notificação do sininho.
         adminRequest(`/orders/${orderId}/viewed`, { method: 'PATCH' })
@@ -37,6 +48,20 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
       .catch(() => !cancelled && setStatus('error'));
     return () => { cancelled = true; };
   }, [orderId, adminRequest, onMarkedViewed]);
+
+  async function handleSaveTracking() {
+    setSavingTracking(true);
+    setTrackingErr('');
+    setTrackingSaved(false);
+    try {
+      await adminRequest(`/orders/${orderId}/tracking`, { method: 'PATCH', body: tracking });
+      setTrackingSaved(true);
+    } catch (err) {
+      setTrackingErr(err.message || 'Não foi possível salvar.');
+    } finally {
+      setSavingTracking(false);
+    }
+  }
 
   return (
     <div className="modal-overlay open" onClick={onClose}>
@@ -83,6 +108,51 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
                 Prazo estimado: {order.estimatedMinDays}–{order.estimatedMaxDays} dias úteis ·{' '}
                 {order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : ''}
               </p>
+
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <p className="checkout-section-title" style={{ fontSize: 14, marginBottom: 10 }}>Envio e rastreio</p>
+
+                <div className="checkout-form-grid">
+                  <select
+                    className="field-input"
+                    value={tracking.shipmentScope}
+                    onChange={(e) => setTracking((t) => ({ ...t, shipmentScope: e.target.value }))}
+                  >
+                    <option value="nacional">Nacional</option>
+                    <option value="internacional">Internacional</option>
+                  </select>
+                  <input
+                    className="field-input"
+                    placeholder="Transportadora (ex: Correios)"
+                    value={tracking.trackingCarrier}
+                    onChange={(e) => setTracking((t) => ({ ...t, trackingCarrier: e.target.value }))}
+                  />
+                  <input
+                    className="field-input"
+                    placeholder="Código de rastreio"
+                    value={tracking.trackingCode}
+                    onChange={(e) => setTracking((t) => ({ ...t, trackingCode: e.target.value }))}
+                  />
+                  <input
+                    className="field-input field-full"
+                    placeholder="Link de rastreio (opcional)"
+                    value={tracking.trackingUrl}
+                    onChange={(e) => setTracking((t) => ({ ...t, trackingUrl: e.target.value }))}
+                  />
+                </div>
+
+                {trackingErr && <p style={{ color: '#b91c1c', fontSize: 12.5, marginTop: 8 }}>{trackingErr}</p>}
+                {trackingSaved && !trackingErr && <p style={{ color: '#15803d', fontSize: 12.5, marginTop: 8 }}>Salvo — já aparece pro cliente.</p>}
+
+                <button
+                  onClick={handleSaveTracking}
+                  disabled={savingTracking}
+                  className="btn-primary"
+                  style={{ fontSize: 13, marginTop: 12 }}
+                >
+                  {savingTracking ? 'Salvando…' : 'Salvar envio e rastreio'}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -169,14 +239,14 @@ export default function AdminPedidosPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', background: 'var(--bg)' }}>
-                    {['#', 'Cliente', 'E-mail', 'Total', 'Forma', 'Status', 'Data', ''].map((h) => (
+                    {['#', 'Cliente', 'E-mail', 'Total', 'Forma', 'Envio', 'Status', 'Data', ''].map((h) => (
                       <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {!orders.length && (
-                    <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Nenhum pedido encontrado.</td></tr>
+                    <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Nenhum pedido encontrado.</td></tr>
                   )}
                   {orders.map((order) => {
                     const unseen = !order.viewed_by_admin;
@@ -195,6 +265,24 @@ export default function AdminPedidosPage() {
                         <td style={{ padding: '14px 16px', color: 'var(--muted)' }}>{order.email}</td>
                         <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--amber-dk)', fontFamily: 'var(--font-display)' }}>{brl(order.total_amount)}</td>
                         <td style={{ padding: '14px 16px', textTransform: 'capitalize' }}>{order.payment_method}</td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                            padding: '3px 8px', borderRadius: 999,
+                            background: order.shipment_scope === 'internacional' ? 'rgba(124,58,237,0.1)' : 'rgba(15,118,110,0.1)',
+                            color: order.shipment_scope === 'internacional' ? '#7c3aed' : '#0f766e',
+                          }}>
+                            {shipmentScopeLabel(order.shipment_scope)}
+                          </span>
+                          {order.tracking_code && (
+                            <iconify-icon
+                              className="iconify"
+                              icon="mdi:truck-check-outline"
+                              title={`Rastreio: ${order.tracking_code}`}
+                              style={{ fontSize: 14, marginLeft: 6, color: 'var(--muted)', verticalAlign: 'middle' }}
+                            />
+                          )}
+                        </td>
                         <td style={{ padding: '14px 16px' }}>
                           <select
                             value={order.status}

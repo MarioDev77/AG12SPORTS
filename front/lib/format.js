@@ -57,3 +57,7 @@ export const ORDER_STATUS_COLORS = {
 export function orderStatusLabel(status) {
   return ORDER_STATUS_LABELS[status] || status;
 }
+
+export function shipmentScopeLabel(scope) {
+  return scope === 'internacional' ? 'Internacional' : 'Nacional';
+}

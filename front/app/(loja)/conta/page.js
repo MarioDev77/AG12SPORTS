@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useWish } from '@/context/WishContext';
 import { apiRequest } from '@/lib/api';
-import { brl, orderStatusLabel, ORDER_STATUS_COLORS } from '@/lib/format';
+import { brl, orderStatusLabel, shipmentScopeLabel, ORDER_STATUS_COLORS } from '@/lib/format';
 
 const EMPTY_REGISTER = { name: '', username: '', email: '', phone: '', password: '' };
 
@@ -315,6 +315,19 @@ export default function ContaPage() {
                               <p>Entrega: {detail.address.logradouro}, {detail.address.numero} — {detail.address.cidade}/{detail.address.uf}</p>
                               <p>Frete: {brl(detail.shippingCost)} · Prazo: {detail.estimatedMinDays}–{detail.estimatedMaxDays} dias úteis</p>
                               <p>Pagamento: {detail.paymentMethod === 'pix' ? 'Pix' : detail.paymentMethod === 'cartao' ? 'Cartão' : 'Boleto'}</p>
+                              <p>Envio: {shipmentScopeLabel(detail.shipmentScope)}</p>
+                              {detail.tracking?.code && (
+                                <p>
+                                  Rastreio: {detail.tracking.carrier ? `${detail.tracking.carrier} — ` : ''}
+                                  {detail.tracking.url ? (
+                                    <a href={detail.tracking.url} target="_blank" rel="noopener" style={{ color: 'var(--amber-dk)', fontWeight: 600 }}>
+                                      {detail.tracking.code}
+                                    </a>
+                                  ) : (
+                                    <strong style={{ color: 'var(--ink)' }}>{detail.tracking.code}</strong>
+                                  )}
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}

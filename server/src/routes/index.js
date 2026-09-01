@@ -22,6 +22,7 @@ const ordersRouter = require('./orders');
 const cepRouter = require('./cep');
 const shippingRouter = require('./shipping');
 const addressesRouter = require('./addresses');
+const geoRouter = require('./geo');
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.use('/orders', ordersRouter);
 router.use('/cep', cepRouter);
 router.use('/shipping', shippingRouter);
 router.use('/addresses', addressesRouter);
+router.use('/geo', geoRouter);
 
 // ─── Painel admin — prefixo oculto, configurável via .env ────────────────────
 const ADMIN_ROUTE_PREFIX = process.env.ADMIN_ROUTE_PREFIX || '/manage';

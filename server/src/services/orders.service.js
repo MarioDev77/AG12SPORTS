@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { pool } = require('../db/pool');
 const { calculateShipping } = require('./shipping.service');
-const { notifyNewOrder } = require('./email.service');
+const { notifyNewOrder, notifyCustomerOrderReceived } = require('./email.service');
 
 function sha256(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -192,6 +192,9 @@ async function createOrder(payload, userId) {
     // Notificação por e-mail — fora da transação, nunca bloqueia/derruba o
     // pedido já confirmado se o envio falhar.
     notifyNewOrder({ id: orderId, customerName: customer.name, total, paymentMethod: payment.method }).catch(() => {});
+    notifyCustomerOrderReceived({
+      id: orderId, customerName: customer.name, email: customer.email, total, paymentMethod: payment.method,
+    }).catch(() => {});
 
     return {
       orderId,
@@ -219,6 +222,7 @@ async function getOrderByIdAndUser(orderId) {
             o.address_bairro, o.address_cidade, o.address_uf,
             o.subtotal_amount, o.shipping_cost, o.total_amount,
             o.estimated_delivery_min_days, o.estimated_delivery_max_days, o.created_at,
+            o.shipment_scope, o.tracking_carrier, o.tracking_code, o.tracking_url,
             JSON_ARRAYAGG(
               JSON_OBJECT(
                 'productId', oi.product_id,
@@ -266,6 +270,12 @@ async function getOrderByIdAndUser(orderId) {
     estimatedMinDays: row.estimated_delivery_min_days,
     estimatedMaxDays: row.estimated_delivery_max_days,
     createdAt: row.created_at,
+    shipmentScope: row.shipment_scope,
+    tracking: {
+      carrier: row.tracking_carrier,
+      code: row.tracking_code,
+      url: row.tracking_url,
+    },
     items,
   };
 }
@@ -312,7 +322,8 @@ async function getAllOrders({ page = 1, limit = 20, status } = {}) {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const [rows] = await pool.query(
-    `SELECT id, customer_name, email, payment_method, total_amount, status, viewed_by_admin, created_at
+    `SELECT id, customer_name, email, payment_method, total_amount, status, shipment_scope,
+            tracking_code, viewed_by_admin, created_at
      FROM orders ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, safeLimit, offset]
   );
@@ -336,6 +347,27 @@ async function updateOrderStatus(orderId, status) {
   return result.affectedRows > 0;
 }
 
+/**
+ * Atualiza escopo do envio (nacional/internacional) e/ou dados de rastreio
+ * de um pedido. Todos os campos são opcionais — só atualiza o que vier
+ * definido, pra não sobrescrever um campo já preenchido com null à toa.
+ */
+async function updateOrderTracking(orderId, { shipmentScope, trackingCarrier, trackingCode, trackingUrl }) {
+  const fields = [];
+  const params = [];
+
+  if (shipmentScope !== undefined) { fields.push('shipment_scope = ?'); params.push(shipmentScope); }
+  if (trackingCarrier !== undefined) { fields.push('tracking_carrier = ?'); params.push(trackingCarrier || null); }
+  if (trackingCode !== undefined) { fields.push('tracking_code = ?'); params.push(trackingCode || null); }
+  if (trackingUrl !== undefined) { fields.push('tracking_url = ?'); params.push(trackingUrl || null); }
+
+  if (!fields.length) return false;
+
+  params.push(orderId);
+  const [result] = await pool.execute(`UPDATE orders SET ${fields.join(', ')} WHERE id = ?`, params);
+  return result.affectedRows > 0;
+}
+
 module.exports = {
   createOrder,
   getOrderByIdAndUser,
@@ -344,4 +376,5 @@ module.exports = {
   countUnseenOrders,
   markOrderViewed,
   updateOrderStatus,
+  updateOrderTracking,
 };

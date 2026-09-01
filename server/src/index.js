@@ -156,6 +156,17 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again later' },
 });
 
+// Rate limit reforçado pra /geo — o Nominatim (OpenStreetMap) tem política
+// de uso restrita a poucas requisições por segundo; esse limite é bem mais
+// apertado que o global de /api pra nunca estourar a cota do serviço.
+const geoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas buscas de localização. Tente novamente em instantes.' },
+});
+
 // ─── Arquivos de upload (estático, só imagens processadas) ───────────────────
 app.use(
   '/uploads',
@@ -198,6 +209,7 @@ app.use(
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter);
+app.use('/api/geo', geoLimiter);
 app.use('/api', apiRouter);
 
 // ─── Catch-all ────────────────────────────────────────────────────────────────

@@ -766,7 +766,8 @@ router.delete('/products/:id', async (req, res, next) => {
 
 // ─── Usuários ─────────────────────────────────────────────────────────────────
 // ── Pedidos (etapa 19) ──────────────────────────────────────────────────────
-const { getAllOrders, getOrderByIdAndUser, countUnseenOrders, markOrderViewed, updateOrderStatus } = require('../services/orders.service');
+const { getAllOrders, getOrderByIdAndUser, countUnseenOrders, markOrderViewed, updateOrderStatus, updateOrderTracking } = require('../services/orders.service');
+const { notifyCustomerOrderShipped } = require('../services/email.service');
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -822,6 +823,44 @@ router.patch('/orders/:id/status', async (req, res, next) => {
     const updated = await updateOrderStatus(id, status);
     if (!updated) return res.status(404).json({ error: 'Not found' });
     return res.json({ updated: true, status });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// ── PATCH /manage/orders/:id/tracking — escopo do envio + dados de rastreio ──
+// Todos os campos são opcionais: manda só o que for editar. shipmentScope
+// aceita 'nacional' ou 'internacional'; os demais, quando enviados como
+// string vazia, limpam o campo (fica NULL) — útil pra corrigir um código
+// digitado errado sem precisar apagar tudo na mão no banco.
+const OrderTrackingSchema = z.object({
+  shipmentScope: z.enum(['nacional', 'internacional']).optional(),
+  trackingCarrier: z.string().max(80).optional().nullable(),
+  trackingCode: z.string().max(60).optional().nullable(),
+  trackingUrl: z.union([z.string().url().max(255), z.literal('')]).optional().nullable(),
+});
+
+router.patch('/orders/:id/tracking', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'order id');
+    const parsed = OrderTrackingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    }
+    const updated = await updateOrderTracking(id, parsed.data);
+    if (!updated) return res.status(404).json({ error: 'Not found ou nada para atualizar' });
+
+    // Se um código de rastreio foi definido/alterado nesta chamada, avisa o
+    // cliente por e-mail. Fora do fluxo principal — nunca bloqueia a resposta
+    // nem derruba a atualização se o e-mail falhar.
+    if (parsed.data.trackingCode) {
+      getOrderByIdAndUser(id)
+        .then((order) => order && notifyCustomerOrderShipped(order))
+        .catch(() => {});
+    }
+
+    return res.json({ updated: true });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     return next(err);
