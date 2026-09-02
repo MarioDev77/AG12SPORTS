@@ -5,14 +5,120 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useWish } from '@/context/WishContext';
 import { apiRequest } from '@/lib/api';
-import { brl, orderStatusLabel, shipmentScopeLabel, formatDeliveryWindow, ORDER_STATUS_COLORS } from '@/lib/format';
+import { brl, orderStatusLabel, shipmentScopeLabel, formatDeliveryWindow, ORDER_STATUS_COLORS, maskCep, maskPhone } from '@/lib/format';
 
 const EMPTY_REGISTER = { name: '', username: '', email: '', phone: '', password: '' };
 
-export default function ContaPage() {
-  const { user, token, login, register, logout, isAuthenticated } = useAuth();
+const BRAZIL_UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
 
-  const [tab, setTab] = useState('favoritos'); // 'favoritos' | 'pedidos'
+const EMPTY_ADDRESS = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', isDefault: false };
+
+// ─── Modal de adicionar/editar endereço — mesmo padrão de CEP do checkout ────
+function AddressFormModal({ initial, onClose, onSaved, token }) {
+  const [form, setForm] = useState(initial ? { ...EMPTY_ADDRESS, ...initial, complemento: initial.complemento || '' } : EMPTY_ADDRESS);
+  const [cepStatus, setCepStatus] = useState('idle');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const isEdit = !!initial?.id;
+
+  async function handleCepBlur() {
+    const digits = form.cep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setCepStatus('loading');
+    try {
+      const addr = await apiRequest(`/cep/${digits}`);
+      setForm((f) => ({
+        ...f,
+        logradouro: addr.logradouro || f.logradouro,
+        bairro: addr.bairro || f.bairro,
+        cidade: addr.cidade || f.cidade,
+        uf: (addr.uf || f.uf).toUpperCase(),
+      }));
+      setCepStatus('idle');
+    } catch {
+      setCepStatus('error');
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const payload = { ...form, cep: maskCep(form.cep) };
+      if (isEdit) {
+        await apiRequest(`/addresses/${initial.id}`, { method: 'PATCH', body: payload, token });
+      } else {
+        await apiRequest('/addresses', { method: 'POST', body: payload, token });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err.message || 'Não foi possível salvar. Confira os campos.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay open" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} className="checkout-body">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <p className="checkout-section-title" style={{ marginBottom: 0 }}>{isEdit ? 'Editar endereço' : 'Novo endereço'}</p>
+            <button type="button" onClick={onClose} className="modal-close-btn" style={{ alignSelf: 'auto' }} aria-label="Fechar">
+              <iconify-icon className="iconify" icon="mdi:close" style={{ fontSize: 16 }} />
+            </button>
+          </div>
+
+          <div className="checkout-form-grid">
+            <input
+              className="field-input"
+              placeholder="CEP"
+              value={form.cep}
+              onChange={(e) => setForm((f) => ({ ...f, cep: maskCep(e.target.value) }))}
+              onBlur={handleCepBlur}
+              maxLength={9}
+              required
+            />
+            <input className="field-input" placeholder="Número" value={form.numero} onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))} required />
+            <input className="field-input field-full" placeholder="Rua/logradouro" value={form.logradouro} onChange={(e) => setForm((f) => ({ ...f, logradouro: e.target.value }))} required />
+            <input className="field-input" placeholder="Complemento (opcional)" value={form.complemento} onChange={(e) => setForm((f) => ({ ...f, complemento: e.target.value }))} />
+            <input className="field-input" placeholder="Bairro" value={form.bairro} onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))} required />
+            <input className="field-input" placeholder="Cidade" value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} required />
+            <select className="field-input" value={form.uf} onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value }))} required>
+              <option value="">UF</option>
+              {BRAZIL_UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13.5 }}>
+            <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((f) => ({ ...f, isDefault: e.target.checked }))} />
+            Usar como endereço padrão
+          </label>
+
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+            {cepStatus === 'loading' ? 'Consultando CEP…' : ''}
+          </p>
+
+          {error && <p style={{ color: '#b91c1c', fontSize: 12.5, marginTop: 8 }}>{error}</p>}
+
+          <button type="submit" disabled={saving} className="btn-primary" style={{ fontSize: 13, marginTop: 16 }}>
+            {saving ? 'Salvando…' : 'Salvar endereço'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function ContaPage() {
+  const { user, token, login, register, logout, isAuthenticated, updateUser } = useAuth();
+
+  const [tab, setTab] = useState('pedidos'); // 'pedidos' | 'perfil' | 'enderecos' | 'favoritos'
 
   const [orders, setOrders] = useState([]);
   const [ordersStatus, setOrdersStatus] = useState('idle'); // idle | loading | ready | error
@@ -34,6 +140,69 @@ export default function ContaPage() {
       apiRequest(`/orders/${id}`, { token })
         .then((data) => setOrderDetails((prev) => ({ ...prev, [id]: data.order })))
         .catch(() => {});
+    }
+  }
+
+  // ── Meu perfil ────────────────────────────────────────────────────────────
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
+  const [profileStatus, setProfileStatus] = useState('idle'); // idle | saving | saved | error
+  const [profileErr, setProfileErr] = useState('');
+
+  useEffect(() => {
+    if (user) setProfileForm({ name: user.name || '', phone: user.phone || '' });
+  }, [user]);
+
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    setProfileStatus('saving');
+    setProfileErr('');
+    try {
+      const payload = {};
+      if (profileForm.name) payload.name = profileForm.name;
+      if (profileForm.phone) payload.phone = profileForm.phone.replace(/[^\d()+\-\s]/g, '');
+      const data = await apiRequest('/auth/me', { method: 'PATCH', body: payload, token });
+      updateUser(data.user);
+      setProfileStatus('saved');
+    } catch (err) {
+      setProfileErr(err.message || 'Não foi possível salvar.');
+      setProfileStatus('error');
+    }
+  }
+
+  // ── Endereços ────────────────────────────────────────────────────────────
+  const [addresses, setAddresses] = useState([]);
+  const [addressesStatus, setAddressesStatus] = useState('idle'); // idle | loading | ready | error
+  const [addressModal, setAddressModal] = useState(null); // null fechado, {} novo, {id,...} editar
+
+  function loadAddresses() {
+    setAddressesStatus('loading');
+    apiRequest('/addresses', { token })
+      .then((data) => { setAddresses(data || []); setAddressesStatus('ready'); })
+      .catch(() => setAddressesStatus('error'));
+  }
+
+  useEffect(() => {
+    if (tab !== 'enderecos' || !isAuthenticated || addressesStatus !== 'idle') return;
+    loadAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, isAuthenticated, addressesStatus]);
+
+  async function handleDeleteAddress(addr) {
+    if (!confirm('Excluir este endereço?')) return;
+    try {
+      await apiRequest(`/addresses/${addr.id}`, { method: 'DELETE', token });
+      setAddresses((prev) => prev.filter((a) => a.id !== addr.id));
+    } catch (err) {
+      alert(err.message || 'Não foi possível excluir.');
+    }
+  }
+
+  async function handleSetDefaultAddress(addr) {
+    try {
+      await apiRequest(`/addresses/${addr.id}`, { method: 'PATCH', body: { isDefault: true }, token });
+      loadAddresses();
+    } catch (err) {
+      alert(err.message || 'Não foi possível definir como padrão.');
     }
   }
 
@@ -229,22 +398,22 @@ export default function ContaPage() {
         <button onClick={logout} className="btn-secondary">Sair</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: 'var(--surface)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)' }}>
-        <button
-          type="button"
-          onClick={() => setTab('favoritos')}
-          className={tab === 'favoritos' ? 'btn-primary' : 'btn-secondary'}
-          style={{ fontSize: 13 }}
-        >
-          Favoritos {wishIds.length > 0 ? `(${wishIds.length})` : ''}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('pedidos')}
-          className={tab === 'pedidos' ? 'btn-primary' : 'btn-secondary'}
-          style={{ fontSize: 13 }}
-        >
+      <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: 'var(--surface)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => setTab('pedidos')} className={tab === 'pedidos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+          <iconify-icon className="iconify" icon="mdi:receipt-text-outline" style={{ fontSize: 15 }} />
           Meus pedidos
+        </button>
+        <button type="button" onClick={() => setTab('perfil')} className={tab === 'perfil' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+          <iconify-icon className="iconify" icon="mdi:account-outline" style={{ fontSize: 15 }} />
+          Meu perfil
+        </button>
+        <button type="button" onClick={() => setTab('enderecos')} className={tab === 'enderecos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+          <iconify-icon className="iconify" icon="mdi:map-marker-outline" style={{ fontSize: 15 }} />
+          Endereços
+        </button>
+        <button type="button" onClick={() => setTab('favoritos')} className={tab === 'favoritos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+          <iconify-icon className="iconify" icon="mdi:heart-outline" style={{ fontSize: 15 }} />
+          Favoritos {wishIds.length > 0 ? `(${wishIds.length})` : ''}
         </button>
       </div>
 
@@ -343,6 +512,94 @@ export default function ContaPage() {
                 );
               })}
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'perfil' && (
+        <section>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Meu perfil</h2>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 20, maxWidth: 480 }}>
+            <form onSubmit={handleSaveProfile} className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Nome completo
+                <input className="field-input" value={profileForm.name} onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))} />
+              </label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Telefone
+                <input className="field-input" value={profileForm.phone} onChange={(e) => setProfileForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))} />
+              </label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                E-mail (não editável)
+                <input className="field-input" value={user?.email || ''} disabled style={{ opacity: 0.6 }} />
+              </label>
+              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Usuário (não editável)
+                <input className="field-input" value={user?.username || ''} disabled style={{ opacity: 0.6 }} />
+              </label>
+              {profileErr && <div className="error-box">{profileErr}</div>}
+              {profileStatus === 'saved' && <p style={{ color: '#15803d', fontSize: 12.5 }}>Perfil atualizado.</p>}
+              <button type="submit" disabled={profileStatus === 'saving'} className="btn-primary" style={{ justifyContent: 'center' }}>
+                {profileStatus === 'saving' ? 'Salvando…' : 'Salvar alterações'}
+              </button>
+            </form>
+          </div>
+        </section>
+      )}
+
+      {tab === 'enderecos' && (
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>
+              Meus endereços {addresses.length > 0 ? `(${addresses.length})` : ''}
+            </h2>
+            <button onClick={() => setAddressModal({})} className="btn-primary" style={{ fontSize: 13 }}>
+              <iconify-icon className="iconify" icon="mdi:plus" style={{ fontSize: 15 }} />
+              Adicionar
+            </button>
+          </div>
+
+          {addressesStatus === 'loading' && <p style={{ color: 'var(--muted)' }}>Carregando endereços…</p>}
+          {addressesStatus === 'error' && <p style={{ color: 'var(--muted)' }}>Não foi possível carregar seus endereços.</p>}
+
+          {addressesStatus === 'ready' && addresses.length === 0 && (
+            <div id="emptyState" role="status">
+              <iconify-icon className="iconify" icon="mdi:map-marker-outline" style={{ fontSize: 36, color: 'var(--muted)', marginBottom: 12 }} />
+              <h3>Nenhum endereço salvo</h3>
+              <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6 }}>Adicione um endereço pra agilizar seus próximos pedidos.</p>
+            </div>
+          )}
+
+          {addressesStatus === 'ready' && addresses.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {addresses.map((addr) => (
+                <div key={addr.id} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    {!!addr.is_default && (
+                      <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--amber-dk)' }}>Padrão</span>
+                    )}
+                    <p style={{ fontSize: 14, marginTop: 2 }}>{addr.logradouro}, {addr.numero}{addr.complemento ? ` — ${addr.complemento}` : ''}</p>
+                    <p style={{ fontSize: 13, color: 'var(--muted)' }}>{addr.bairro} · {addr.cidade}/{addr.uf} · CEP {addr.cep}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {!addr.is_default && (
+                      <button onClick={() => handleSetDefaultAddress(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}>Tornar padrão</button>
+                    )}
+                    <button onClick={() => setAddressModal(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}>Editar</button>
+                    <button onClick={() => handleDeleteAddress(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px', color: '#b91c1c' }}>Excluir</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {addressModal && (
+            <AddressFormModal
+              initial={addressModal}
+              token={token}
+              onClose={() => setAddressModal(null)}
+              onSaved={() => { setAddressModal(null); loadAddresses(); }}
+            />
           )}
         </section>
       )}

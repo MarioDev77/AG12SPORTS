@@ -48,7 +48,15 @@ export function AuthProvider({ children }) {
     clearSession();
   }, [clearSession]);
 
-  const value = { token, user, login, register, logout, clearSession, isAuthenticated: !!token };
+  /**
+   * Atualiza os dados do usuário em memória (ex: depois de editar o perfil
+   * em /conta) — não mexe no token, só no snapshot local de `user`.
+   */
+  const updateUser = useCallback((freshUser) => {
+    setUser(freshUser);
+  }, []);
+
+  const value = { token, user, login, register, logout, clearSession, updateUser, isAuthenticated: !!token };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
