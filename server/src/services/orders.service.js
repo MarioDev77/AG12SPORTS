@@ -237,6 +237,7 @@ async function getOrderByIdAndUser(orderId) {
             o.estimated_delivery_min_days, o.estimated_delivery_max_days,
             o.estimated_delivery_min_date, o.estimated_delivery_max_date, o.created_at,
             o.shipment_scope, o.tracking_carrier, o.tracking_code, o.tracking_url,
+            o.origin_id, org.name AS origin_name, org.cidade AS origin_cidade, org.uf AS origin_uf,
             JSON_ARRAYAGG(
               JSON_OBJECT(
                 'productId', oi.product_id,
@@ -250,6 +251,7 @@ async function getOrderByIdAndUser(orderId) {
             ) AS items
      FROM orders o
      LEFT JOIN order_items oi ON oi.order_id = o.id
+     LEFT JOIN origins org ON org.id = o.origin_id
      WHERE o.id = ?
      GROUP BY o.id
      LIMIT 1`,
@@ -292,6 +294,7 @@ async function getOrderByIdAndUser(orderId) {
       code: row.tracking_code,
       url: row.tracking_url,
     },
+    origin: row.origin_id ? { id: row.origin_id, name: row.origin_name, cidade: row.origin_cidade, uf: row.origin_uf } : null,
     items,
   };
 }
@@ -368,7 +371,7 @@ async function updateOrderStatus(orderId, status) {
  * de um pedido. Todos os campos são opcionais — só atualiza o que vier
  * definido, pra não sobrescrever um campo já preenchido com null à toa.
  */
-async function updateOrderTracking(orderId, { shipmentScope, trackingCarrier, trackingCode, trackingUrl }) {
+async function updateOrderTracking(orderId, { shipmentScope, trackingCarrier, trackingCode, trackingUrl, originId }) {
   const fields = [];
   const params = [];
 
@@ -376,6 +379,7 @@ async function updateOrderTracking(orderId, { shipmentScope, trackingCarrier, tr
   if (trackingCarrier !== undefined) { fields.push('tracking_carrier = ?'); params.push(trackingCarrier || null); }
   if (trackingCode !== undefined) { fields.push('tracking_code = ?'); params.push(trackingCode || null); }
   if (trackingUrl !== undefined) { fields.push('tracking_url = ?'); params.push(trackingUrl || null); }
+  if (originId !== undefined) { fields.push('origin_id = ?'); params.push(originId || null); }
 
   if (!fields.length) return false;
 

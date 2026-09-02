@@ -20,8 +20,9 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
   const { adminRequest } = useAdminAuth();
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState('loading');
+  const [origins, setOrigins] = useState([]);
 
-  const [tracking, setTracking] = useState({ shipmentScope: 'nacional', trackingCarrier: '', trackingCode: '', trackingUrl: '' });
+  const [tracking, setTracking] = useState({ shipmentScope: 'nacional', trackingCarrier: '', trackingCode: '', trackingUrl: '', originId: '' });
   const [savingTracking, setSavingTracking] = useState(false);
   const [trackingErr, setTrackingErr] = useState('');
   const [trackingSaved, setTrackingSaved] = useState(false);
@@ -38,6 +39,7 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
           trackingCarrier: data.order.tracking?.carrier || '',
           trackingCode: data.order.tracking?.code || '',
           trackingUrl: data.order.tracking?.url || '',
+          originId: data.order.origin?.id ? String(data.order.origin.id) : '',
         });
         setStatus('ready');
         // Marca como visto ao abrir os detalhes — limpa a notificação do sininho.
@@ -46,6 +48,10 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
           .catch(() => {});
       })
       .catch(() => !cancelled && setStatus('error'));
+    // Depósitos ativos, pra popular o select de origem — carrega uma vez só.
+    adminRequest('/origins?active=1')
+      .then((data) => !cancelled && setOrigins(data.origins || []))
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [orderId, adminRequest, onMarkedViewed]);
 
@@ -54,7 +60,10 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
     setTrackingErr('');
     setTrackingSaved(false);
     try {
-      await adminRequest(`/orders/${orderId}/tracking`, { method: 'PATCH', body: tracking });
+      await adminRequest(`/orders/${orderId}/tracking`, {
+        method: 'PATCH',
+        body: { ...tracking, originId: tracking.originId ? Number(tracking.originId) : null },
+      });
       setTrackingSaved(true);
     } catch (err) {
       setTrackingErr(err.message || 'Não foi possível salvar.');
@@ -113,6 +122,16 @@ function OrderDetailModal({ orderId, onClose, onMarkedViewed }) {
                 <p className="checkout-section-title" style={{ fontSize: 14, marginBottom: 10 }}>Envio e rastreio</p>
 
                 <div className="checkout-form-grid">
+                  <select
+                    className="field-input field-full"
+                    value={tracking.originId}
+                    onChange={(e) => setTracking((t) => ({ ...t, originId: e.target.value }))}
+                  >
+                    <option value="">Origem do pedido — não definida</option>
+                    {origins.map((o) => (
+                      <option key={o.id} value={o.id}>{o.name} — {o.cidade}/{o.uf}</option>
+                    ))}
+                  </select>
                   <select
                     className="field-input"
                     value={tracking.shipmentScope}

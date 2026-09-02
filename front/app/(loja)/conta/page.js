@@ -319,6 +319,9 @@ export default function ContaPage() {
                               )}
                               <p>Pagamento: {detail.paymentMethod === 'pix' ? 'Pix' : detail.paymentMethod === 'cartao' ? 'Cartão' : 'Boleto'}</p>
                               <p>Envio: {shipmentScopeLabel(detail.shipmentScope)}</p>
+                              {detail.origin && (
+                                <p>Saiu de: {detail.origin.name} ({detail.origin.cidade}/{detail.origin.uf})</p>
+                              )}
                               {detail.tracking?.code && (
                                 <p>
                                   Rastreio: {detail.tracking.carrier ? `${detail.tracking.carrier} — ` : ''}

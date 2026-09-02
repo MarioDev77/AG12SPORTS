@@ -840,6 +840,9 @@ const OrderTrackingSchema = z.object({
   trackingCarrier: z.string().max(80).optional().nullable(),
   trackingCode: z.string().max(60).optional().nullable(),
   trackingUrl: z.union([z.string().url().max(255), z.literal('')]).optional().nullable(),
+  // originId: de qual depósito (etapa 21) o pedido saiu. null limpa a
+  // escolha (volta a aparecer como "sem origem definida").
+  originId: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
 });
 
 router.patch('/orders/:id/tracking', async (req, res, next) => {
@@ -849,7 +852,14 @@ router.patch('/orders/:id/tracking', async (req, res, next) => {
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
     }
-    const updated = await updateOrderTracking(id, parsed.data);
+
+    let updated;
+    try {
+      updated = await updateOrderTracking(id, parsed.data);
+    } catch (err) {
+      if (err.errno === 1452) return res.status(400).json({ error: 'Depósito de origem inválido.' });
+      throw err;
+    }
     if (!updated) return res.status(404).json({ error: 'Not found ou nada para atualizar' });
 
     // Se um código de rastreio foi definido/alterado nesta chamada, avisa o
