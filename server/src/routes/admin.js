@@ -769,6 +769,7 @@ router.delete('/products/:id', async (req, res, next) => {
 const { getAllOrders, getOrderByIdAndUser, countUnseenOrders, markOrderViewed, updateOrderStatus, updateOrderTracking } = require('../services/orders.service');
 const { notifyCustomerOrderShipped } = require('../services/email.service');
 const { listOrigins, getOriginById, createOrigin, updateOrigin, deleteOrigin } = require('../services/origins.service');
+const { listHolidays } = require('../services/holidays.service');
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -881,6 +882,11 @@ router.patch('/orders/:id/tracking', async (req, res, next) => {
 // ── Regras de frete (etapa 19) ──────────────────────────────────────────────
 const ShippingRegionSchema = z.object({
   uf: z.string().trim().regex(/^([A-Za-z]{2}|\*)$/, 'UF inválida (sigla de 2 letras, ou * para regra padrão)').transform((v) => v.toUpperCase()),
+  // Opcionais (etapa 24) — deixam a regra mais específica que a UF sozinha.
+  // Uma regra de cidade precisa da UF junto; cep_prefix (5 dígitos) é
+  // independente e tem prioridade máxima na busca (ver shipping.service.js).
+  cidade: z.string().trim().max(120).optional().nullable(),
+  cep_prefix: z.string().trim().regex(/^\d{5}$/, 'CEP deve ter 5 dígitos (ex: 44700)').optional().nullable(),
   delivery_min_days: z.coerce.number().int().min(0),
   delivery_max_days: z.coerce.number().int().min(0),
   shipping_cost: z.coerce.number().min(0),
@@ -890,28 +896,47 @@ const ShippingRegionSchema = z.object({
 router.get('/shipping-regions', async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, uf, delivery_min_days, delivery_max_days, shipping_cost, active FROM shipping_regions ORDER BY (uf = "*") ASC, uf ASC'
+      `SELECT id, uf, cidade, cep_prefix, delivery_min_days, delivery_max_days, shipping_cost, active
+       FROM shipping_regions
+       ORDER BY (uf = '*') ASC, uf ASC, (cep_prefix IS NULL) ASC, (cidade IS NULL) ASC`
     );
     return res.json(rows);
   } catch (err) { return next(err); }
 });
 
+// upsert manual (em vez de ON DUPLICATE KEY UPDATE): a tabela não tem mais
+// uma unique key simples (ver etapa 24) porque agora dá pra ter várias
+// regras pra mesma UF (uma geral + outras por cidade/CEP) — então o
+// "duplicado" de verdade é (uf, cidade, cep_prefix) juntos, e comparamos
+// isso na mão usando <=> (null-safe) pra achar se já existe.
 router.post('/shipping-regions', async (req, res, next) => {
   try {
     const parsed = ShippingRegionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
     const d = parsed.data;
-    const [result] = await pool.execute(
-      `INSERT INTO shipping_regions (uf, delivery_min_days, delivery_max_days, shipping_cost, active)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         delivery_min_days = VALUES(delivery_min_days),
-         delivery_max_days = VALUES(delivery_max_days),
-         shipping_cost = VALUES(shipping_cost),
-         active = VALUES(active)`,
-      [d.uf, d.delivery_min_days, d.delivery_max_days, d.shipping_cost, d.active ? 1 : 0]
+    const cidade = d.cidade || null;
+    const cepPrefix = d.cep_prefix || null;
+
+    const [existing] = await pool.query(
+      'SELECT id FROM shipping_regions WHERE uf = ? AND cidade <=> ? AND cep_prefix <=> ? LIMIT 1',
+      [d.uf, cidade, cepPrefix]
     );
-    return res.status(201).json({ id: result.insertId || undefined, ...d });
+
+    if (existing[0]) {
+      await pool.execute(
+        `UPDATE shipping_regions SET delivery_min_days = ?, delivery_max_days = ?, shipping_cost = ?, active = ?
+         WHERE id = ?`,
+        [d.delivery_min_days, d.delivery_max_days, d.shipping_cost, d.active ? 1 : 0, existing[0].id]
+      );
+      return res.status(200).json({ id: existing[0].id, ...d, cidade, cep_prefix: cepPrefix });
+    }
+
+    const [result] = await pool.execute(
+      `INSERT INTO shipping_regions (uf, cidade, cep_prefix, delivery_min_days, delivery_max_days, shipping_cost, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [d.uf, cidade, cepPrefix, d.delivery_min_days, d.delivery_max_days, d.shipping_cost, d.active ? 1 : 0]
+    );
+    return res.status(201).json({ id: result.insertId, ...d, cidade, cep_prefix: cepPrefix });
   } catch (err) { return next(err); }
 });
 
@@ -925,6 +950,8 @@ router.patch('/shipping-regions/:id', async (req, res, next) => {
     const fields = [];
     const values = [];
     if (d.uf !== undefined) { fields.push('uf = ?'); values.push(d.uf); }
+    if (d.cidade !== undefined) { fields.push('cidade = ?'); values.push(d.cidade || null); }
+    if (d.cep_prefix !== undefined) { fields.push('cep_prefix = ?'); values.push(d.cep_prefix || null); }
     if (d.delivery_min_days !== undefined) { fields.push('delivery_min_days = ?'); values.push(d.delivery_min_days); }
     if (d.delivery_max_days !== undefined) { fields.push('delivery_max_days = ?'); values.push(d.delivery_max_days); }
     if (d.shipping_cost !== undefined) { fields.push('shipping_cost = ?'); values.push(d.shipping_cost); }
@@ -935,6 +962,108 @@ router.patch('/shipping-regions/:id', async (req, res, next) => {
     const [result] = await pool.execute(`UPDATE shipping_regions SET ${fields.join(', ')} WHERE id = ?`, values);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
     return res.json({ updated: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+router.delete('/shipping-regions/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'shipping region id');
+    const [result] = await pool.execute('DELETE FROM shipping_regions WHERE id = ?', [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    return res.json({ deleted: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// ── Configurações do motor de frete (etapa 22) ──────────────────────────────
+// Singleton (id=1) — preparo, margem de segurança e parâmetros do ajuste
+// por distância. Ver shipping.service.js pra como cada campo é usado.
+const ShippingSettingsSchema = z.object({
+  prepTimeDays: z.coerce.number().int().min(0).max(30).optional(),
+  marginDays: z.coerce.number().int().min(0).max(30).optional(),
+  distanceBaseFee: z.coerce.number().min(0).optional(),
+  distanceCostPerKm: z.coerce.number().min(0).optional(),
+  distanceDaysPer500Km: z.coerce.number().int().min(1).max(30).optional(),
+});
+
+router.get('/shipping-settings', async (req, res, next) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM shipping_settings WHERE id = 1 LIMIT 1');
+    return res.json({ settings: rows[0] || null });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/shipping-settings', async (req, res, next) => {
+  try {
+    const parsed = ShippingSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    const d = parsed.data;
+
+    const map = {
+      prepTimeDays: 'prep_time_days',
+      marginDays: 'margin_days',
+      distanceBaseFee: 'distance_base_fee',
+      distanceCostPerKm: 'distance_cost_per_km',
+      distanceDaysPer500Km: 'distance_days_per_500km',
+    };
+    const fields = [];
+    const values = [];
+    for (const [key, column] of Object.entries(map)) {
+      if (d[key] !== undefined) { fields.push(`${column} = ?`); values.push(d[key]); }
+    }
+    if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    await pool.execute(`UPDATE shipping_settings SET ${fields.join(', ')} WHERE id = 1`, values);
+    return res.json({ updated: true });
+  } catch (err) { return next(err); }
+});
+
+// ── Feriados (etapa 22) ──────────────────────────────────────────────────────
+// uf/cidade nulos = feriado nacional; só uf = estadual; uf + cidade = municipal.
+const HolidaySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (use AAAA-MM-DD)'),
+  name: z.string().trim().min(2).max(120),
+  uf: z.union([z.string().trim().length(2).regex(/^[A-Za-z]{2}$/).transform((v) => v.toUpperCase()), z.null()]).optional(),
+  cidade: z.union([z.string().trim().min(2).max(120), z.null()]).optional(),
+});
+
+router.get('/holidays', async (req, res, next) => {
+  try {
+    const year = req.query.year ? Number(req.query.year) : undefined;
+    const holidays = await listHolidays({ year });
+    return res.json({ holidays });
+  } catch (err) { return next(err); }
+});
+
+router.post('/holidays', async (req, res, next) => {
+  try {
+    const parsed = HolidaySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    const d = parsed.data;
+    try {
+      const [result] = await pool.execute(
+        'INSERT INTO holidays (date, name, uf, cidade) VALUES (?, ?, ?, ?)',
+        [d.date, d.name, d.uf || null, d.cidade || null]
+      );
+      return res.status(201).json({ id: result.insertId });
+    } catch (err) {
+      if (err.errno === 1062) return res.status(409).json({ error: 'Já existe um feriado igual cadastrado nessa data/abrangência.' });
+      throw err;
+    }
+  } catch (err) { return next(err); }
+});
+
+router.delete('/holidays/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'holiday id');
+    const [result] = await pool.execute('DELETE FROM holidays WHERE id = ?', [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    return res.json({ deleted: true });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     return next(err);
