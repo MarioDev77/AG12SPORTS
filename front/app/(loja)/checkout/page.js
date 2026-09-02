@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -73,10 +73,30 @@ export default function CheckoutPage() {
   }, [user]);
 
   // Endereços salvos do cliente.
+  const [addressesChecked, setAddressesChecked] = useState(false);
   useEffect(() => {
-    if (!isAuthenticated) return;
-    apiRequest('/addresses', { token }).then(setSavedAddresses).catch(() => {});
+    if (!isAuthenticated) { setAddressesChecked(true); return; }
+    apiRequest('/addresses', { token })
+      .then(setSavedAddresses)
+      .catch(() => {})
+      .finally(() => setAddressesChecked(true));
   }, [isAuthenticated, token]);
+
+  // Localização sugerida automaticamente (etapa D) — só dispara 1x, só se o
+  // cliente não tiver endereço salvo pra escolher (senão a lista de
+  // endereços já resolve mais rápido), e só pede a permissão do navegador
+  // — nunca preenche nada sem o cliente ver e poder editar. Se ele recusar
+  // a permissão, o CEP manual continua funcionando normalmente, sem travar
+  // nada (ver handleUseLocation).
+  const autoGeoTriggered = useRef(false);
+  useEffect(() => {
+    if (autoGeoTriggered.current) return;
+    if (!addressesChecked || savedAddresses.length > 0) return;
+    if (step !== 1) return;
+    autoGeoTriggered.current = true;
+    handleUseLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressesChecked, savedAddresses, step]);
 
   function field(name) {
     return { value: form[name], onChange: (e) => setForm((f) => ({ ...f, [name]: e.target.value })) };
