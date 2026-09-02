@@ -768,6 +768,7 @@ router.delete('/products/:id', async (req, res, next) => {
 // ── Pedidos (etapa 19) ──────────────────────────────────────────────────────
 const { getAllOrders, getOrderByIdAndUser, countUnseenOrders, markOrderViewed, updateOrderStatus, updateOrderTracking } = require('../services/orders.service');
 const { notifyCustomerOrderShipped } = require('../services/email.service');
+const { listOrigins, getOriginById, createOrigin, updateOrigin, deleteOrigin } = require('../services/origins.service');
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -924,6 +925,71 @@ router.patch('/shipping-regions/:id', async (req, res, next) => {
     const [result] = await pool.execute(`UPDATE shipping_regions SET ${fields.join(', ')} WHERE id = ?`, values);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
     return res.json({ updated: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+// ── Depósitos/origens de envio (etapa 21) ───────────────────────────────────
+// Latitude/longitude nunca vêm do admin — são calculadas no backend
+// (OriginsService → GeoService) a partir do endereço, na criação e sempre
+// que o endereço é editado.
+const OriginSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  cep: z.string().trim().length(9).regex(/^\d{5}-\d{3}$/, 'CEP inválido (formato 00000-000)'),
+  logradouro: z.string().trim().min(2).max(160),
+  numero: z.string().trim().min(1).max(20),
+  complemento: z.string().trim().max(80).optional().nullable(),
+  bairro: z.string().trim().min(2).max(120),
+  cidade: z.string().trim().min(2).max(120),
+  uf: z.string().trim().length(2).regex(/^[A-Za-z]{2}$/).transform((v) => v.toUpperCase()),
+  active: z.boolean().optional().default(true),
+});
+
+router.get('/origins', async (req, res, next) => {
+  try {
+    const onlyActive = req.query.active === '1';
+    const origins = await listOrigins({ onlyActive });
+    return res.json({ origins });
+  } catch (err) { return next(err); }
+});
+
+router.post('/origins', async (req, res, next) => {
+  try {
+    const parsed = OriginSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    const origin = await createOrigin(parsed.data);
+    return res.status(201).json({ origin });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+router.patch('/origins/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'origin id');
+    const parsed = OriginSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    if (!Object.keys(parsed.data).length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    const origin = await updateOrigin(id, parsed.data);
+    if (!origin) return res.status(404).json({ error: 'Not found' });
+    return res.json({ origin });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+router.delete('/origins/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'origin id');
+    const existing = await getOriginById(id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    await deleteOrigin(id);
+    return res.json({ deleted: true });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     return next(err);

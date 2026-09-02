@@ -131,4 +131,47 @@ async function reverseGeocode(latRaw, lonRaw) {
   };
 }
 
-module.exports = { reverseGeocode };
+/**
+ * Geocodificação direta: converte um endereço em texto (rua, número,
+ * cidade, UF) em coordenadas aproximadas. Usado só no cadastro de
+ * depósitos/origens no admin — nunca falha o cadastro, só retorna
+ * { latitude: null, longitude: null } quando não encontra nada, pra não
+ * travar o admin cadastrando um endereço menos comum.
+ */
+async function forwardGeocode(addressText) {
+  const query = String(addressText || '').trim();
+  if (!query) return { latitude: null, longitude: null };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NOMINATIM_TIMEOUT_MS);
+
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&countrycodes=br&limit=1`;
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'AG12Sports/1.0 (admin-cadastro-origem)',
+      },
+    });
+    if (!response.ok) return { latitude: null, longitude: null };
+
+    const data = await response.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    if (!first) return { latitude: null, longitude: null };
+
+    const lat = Number(first.lat);
+    const lon = Number(first.lon);
+    if (!isValidCoord(lat, lon)) return { latitude: null, longitude: null };
+
+    return { latitude: lat, longitude: lon };
+  } catch {
+    // Timeout, rede fora, resposta inválida — não trava o cadastro por isso.
+    return { latitude: null, longitude: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+module.exports = { reverseGeocode, forwardGeocode };

@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/admin',          icon: 'mdi:view-dashboard-outline', label: 'Dashboard' },
   { href: '/admin/produtos', icon: 'mdi:package-variant-outline', label: 'Produtos' },
   { href: '/admin/pedidos',  icon: 'mdi:receipt-text-outline',   label: 'Pedidos' },
+  { href: '/admin/origens',  icon: 'mdi:warehouse',              label: 'Depósitos' },
   { href: '/admin/usuarios', icon: 'mdi:account-group-outline',  label: 'Usuários' },
 ];
 
