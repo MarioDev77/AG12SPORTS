@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { apiRequest, ApiError } from '@/lib/api';
-import { brl, maskCep, maskCpf, maskPhone, onlyDigits } from '@/lib/format';
+import { brl, maskCep, maskCpf, maskPhone, onlyDigits, formatDeliveryWindow } from '@/lib/format';
 
 const WPP_NUMBER = '557598756510';
 
@@ -53,6 +53,7 @@ export default function CheckoutPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [cepStatus, setCepStatus] = useState('idle'); // idle | loading | error
   const [geoStatus, setGeoStatus] = useState('idle'); // idle | loading | error
+  const [geoCoords, setGeoCoords] = useState(null); // { lat, lon } — só existe se o cliente usou a localização
   const [stepError, setStepError] = useState('');
 
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -117,6 +118,7 @@ export default function CheckoutPage() {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
+          setGeoCoords({ lat: latitude, lon: longitude });
           const addr = await apiRequest(`/geo/reverse?lat=${latitude}&lon=${longitude}`);
           setForm((f) => ({
             ...f,
@@ -212,7 +214,17 @@ export default function CheckoutPage() {
   async function calculateShipping() {
     setShipping({ status: 'loading' });
     try {
-      const data = await apiRequest('/shipping/calculate', { method: 'POST', body: { state: form.state } });
+      const data = await apiRequest('/shipping/calculate', {
+        method: 'POST',
+        body: {
+          state: form.state,
+          cidade: form.city,
+          cep: form.cep,
+          // Só manda coordenada se o cliente realmente usou "Usar minha
+          // localização" — nunca inventa/estima isso no frontend.
+          ...(geoCoords ? { destinationLat: geoCoords.lat, destinationLon: geoCoords.lon } : {}),
+        },
+      });
       if (!data.available) {
         setShipping({ status: 'unavailable' });
         return;
@@ -249,6 +261,9 @@ export default function CheckoutPage() {
           bairro: form.bairro,
           city: form.city,
           state: form.state.toUpperCase(),
+          // Mesma coordenada usada na prévia do frete, se o cliente usou
+          // a localização — o servidor recalcula tudo de novo mesmo assim.
+          ...(geoCoords ? { destinationLat: geoCoords.lat, destinationLon: geoCoords.lon } : {}),
         },
         payment: { method: paymentMethod },
         items: items.map((it) => ({
@@ -381,7 +396,10 @@ export default function CheckoutPage() {
               <iconify-icon className="iconify" icon="mdi:whatsapp" style={{ fontSize: 44, color: '#16a34a' }} />
               <h3>Pedido #{orderResult.orderId} registrado!</h3>
               <p>
-                Total {brl(orderResult.total)} · entrega em {orderResult.estimatedMinDays}–{orderResult.estimatedMaxDays} dias úteis.
+                Total {brl(orderResult.total)} · entrega em {orderResult.estimatedMinDays}–{orderResult.estimatedMaxDays} dias úteis
+                {formatDeliveryWindow(orderResult.estimatedMinDate, orderResult.estimatedMaxDate) && (
+                  <> (📦 {formatDeliveryWindow(orderResult.estimatedMinDate, orderResult.estimatedMaxDate)})</>
+                )}.
                 <br />
                 Envie o comprovante de pagamento pelo WhatsApp para confirmarmos — assim que confirmado,
                 seu pedido aparece em &quot;Meus pedidos&quot;.
@@ -534,6 +552,12 @@ export default function CheckoutPage() {
                     <span>Prazo estimado</span>
                     <strong>{shipping.estimatedMinDays}–{shipping.estimatedMaxDays} dias úteis</strong>
                   </div>
+                  {formatDeliveryWindow(shipping.estimatedMinDate, shipping.estimatedMaxDate) && (
+                    <div className="summary-row">
+                      <span>📦 Entrega estimada</span>
+                      <strong>{formatDeliveryWindow(shipping.estimatedMinDate, shipping.estimatedMaxDate)}</strong>
+                    </div>
+                  )}
                 </div>
               )}
 

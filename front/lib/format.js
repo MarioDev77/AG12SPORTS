@@ -61,3 +61,30 @@ export function orderStatusLabel(status) {
 export function shipmentScopeLabel(scope) {
   return scope === 'internacional' ? 'Internacional' : 'Nacional';
 }
+
+/**
+ * Formata uma janela de entrega (etapa 22) em português — junta o dia e
+ * mês só uma vez quando os dois extremos caem no mesmo mês:
+ *   "08–12 de setembro" (mesmo mês)
+ *   "29 de setembro – 03 de outubro" (atravessa o mês)
+ * Recebe strings 'YYYY-MM-DD' (como o backend manda). Retorna '' se
+ * alguma das datas vier ausente/inválida — quem chama decide o fallback.
+ */
+export function formatDeliveryWindow(minDateStr, maxDateStr) {
+  if (!minDateStr || !maxDateStr) return '';
+  const parse = (s) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d) ? new Date(Date.UTC(y, m - 1, d)) : null;
+  };
+  const min = parse(minDateStr);
+  const max = parse(maxDateStr);
+  if (!min || !max) return '';
+
+  const day = (d) => String(d.getUTCDate()).padStart(2, '0');
+  const month = (d) => d.toLocaleDateString('pt-BR', { month: 'long', timeZone: 'UTC' });
+
+  if (min.getUTCMonth() === max.getUTCMonth() && min.getUTCFullYear() === max.getUTCFullYear()) {
+    return `${day(min)}–${day(max)} de ${month(max)}`;
+  }
+  return `${day(min)} de ${month(min)} – ${day(max)} de ${month(max)}`;
+}

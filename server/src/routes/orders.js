@@ -28,6 +28,11 @@ const OrderSchema = z.object({
     bairro: z.string().min(2).max(120),
     city: z.string().min(2).max(120),
     state: z.string().length(2).regex(/^[A-Z]{2}$/, 'Estado inválido (use sigla ex: SP)'),
+    // Opcionais (etapa 22) — vêm da geolocalização do navegador, quando o
+    // cliente usou. Só refinam a estimativa (nunca definem preço/prazo
+    // sozinhos — ver calculateShippingEstimate).
+    destinationLat: z.coerce.number().min(-90).max(90).optional(),
+    destinationLon: z.coerce.number().min(-180).max(180).optional(),
   }),
   payment: z.object({
     method: z.enum(['pix', 'cartao', 'boleto']),

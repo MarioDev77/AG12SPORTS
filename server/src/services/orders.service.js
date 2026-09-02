@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const { pool } = require('../db/pool');
-const { calculateShipping } = require('./shipping.service');
+const { calculateShippingEstimate } = require('./shipping.service');
 const { notifyNewOrder, notifyCustomerOrderReceived } = require('./email.service');
 
 function sha256(input) {
@@ -94,7 +94,15 @@ async function createOrder(payload, userId) {
   subtotal = Number(subtotal.toFixed(2));
 
   // ── Frete/prazo recalculados no servidor a partir do endereço ────────────
-  const shipping = await calculateShipping(address.state);
+  // (nunca confia em destinationLat/Lon pra baixar preço/prazo — só pra
+  // aumentar quando a distância sugerir isso; ver calculateShippingEstimate)
+  const shipping = await calculateShippingEstimate({
+    uf: address.state,
+    cidade: address.city,
+    cep: address.cep,
+    destinationLat: address.destinationLat,
+    destinationLon: address.destinationLon,
+  });
   if (!shipping.available) {
     const err = new Error('Infelizmente ainda não realizamos entregas para este endereço.');
     err.status = 422;
@@ -115,8 +123,9 @@ async function createOrder(payload, userId) {
          address_cep, address_logradouro, address_numero, address_complemento,
          address_bairro, address_cidade, address_uf,
          payment_method, subtotal_amount, shipping_cost, total_amount,
-         estimated_delivery_min_days, estimated_delivery_max_days, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+         estimated_delivery_min_days, estimated_delivery_max_days,
+         estimated_delivery_min_date, estimated_delivery_max_date, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
         userId,
         customer.name,
@@ -136,6 +145,8 @@ async function createOrder(payload, userId) {
         total,
         shipping.estimatedMinDays,
         shipping.estimatedMaxDays,
+        shipping.estimatedMinDate,
+        shipping.estimatedMaxDate,
       ]
     );
 
@@ -203,6 +214,8 @@ async function createOrder(payload, userId) {
       total,
       estimatedMinDays: shipping.estimatedMinDays,
       estimatedMaxDays: shipping.estimatedMaxDays,
+      estimatedMinDate: shipping.estimatedMinDate,
+      estimatedMaxDate: shipping.estimatedMaxDate,
     };
   } catch (e) {
     await conn.rollback();
@@ -221,7 +234,8 @@ async function getOrderByIdAndUser(orderId) {
             o.address_cep, o.address_logradouro, o.address_numero, o.address_complemento,
             o.address_bairro, o.address_cidade, o.address_uf,
             o.subtotal_amount, o.shipping_cost, o.total_amount,
-            o.estimated_delivery_min_days, o.estimated_delivery_max_days, o.created_at,
+            o.estimated_delivery_min_days, o.estimated_delivery_max_days,
+            o.estimated_delivery_min_date, o.estimated_delivery_max_date, o.created_at,
             o.shipment_scope, o.tracking_carrier, o.tracking_code, o.tracking_url,
             JSON_ARRAYAGG(
               JSON_OBJECT(
@@ -269,6 +283,8 @@ async function getOrderByIdAndUser(orderId) {
     total: Number(row.total_amount),
     estimatedMinDays: row.estimated_delivery_min_days,
     estimatedMaxDays: row.estimated_delivery_max_days,
+    estimatedMinDate: row.estimated_delivery_min_date ? new Date(row.estimated_delivery_min_date).toISOString().slice(0, 10) : null,
+    estimatedMaxDate: row.estimated_delivery_max_date ? new Date(row.estimated_delivery_max_date).toISOString().slice(0, 10) : null,
     createdAt: row.created_at,
     shipmentScope: row.shipment_scope,
     tracking: {

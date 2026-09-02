@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useWish } from '@/context/WishContext';
 import { apiRequest } from '@/lib/api';
-import { brl, orderStatusLabel, shipmentScopeLabel, ORDER_STATUS_COLORS } from '@/lib/format';
+import { brl, orderStatusLabel, shipmentScopeLabel, formatDeliveryWindow, ORDER_STATUS_COLORS } from '@/lib/format';
 
 const EMPTY_REGISTER = { name: '', username: '', email: '', phone: '', password: '' };
 
@@ -314,6 +314,9 @@ export default function ContaPage() {
                             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
                               <p>Entrega: {detail.address.logradouro}, {detail.address.numero} — {detail.address.cidade}/{detail.address.uf}</p>
                               <p>Frete: {brl(detail.shippingCost)} · Prazo: {detail.estimatedMinDays}–{detail.estimatedMaxDays} dias úteis</p>
+                              {formatDeliveryWindow(detail.estimatedMinDate, detail.estimatedMaxDate) && (
+                                <p>📦 Entrega estimada: {formatDeliveryWindow(detail.estimatedMinDate, detail.estimatedMaxDate)}</p>
+                              )}
                               <p>Pagamento: {detail.paymentMethod === 'pix' ? 'Pix' : detail.paymentMethod === 'cartao' ? 'Cartão' : 'Boleto'}</p>
                               <p>Envio: {shipmentScopeLabel(detail.shipmentScope)}</p>
                               {detail.tracking?.code && (
