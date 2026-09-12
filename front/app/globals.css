@@ -1840,3 +1840,356 @@ footer a:hover { color: var(--amber-lt); }
 @media (max-width: 640px) {
   .pg-lb-arrow { display: none; }
 }
+
+
+/* ============================================================
+   ABERTURA CINEMATOGRÁFICA — "cinematic-intro"
+   Tela cheia exibida uma vez por sessão ao entrar na loja.
+   Design portado de public/ag12-abertura.html (logo com anel
+   dourado + halo pulsante, nome revelado letra a letra, slogan,
+   linha decorativa e barra de progresso).
+   ============================================================ */
+.cinematic-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 40%, #17140d 0%, #080807 60%);
+  transition: opacity 900ms ease, visibility 900ms ease;
+}
+.cinematic-intro.is-exiting {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.intro-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.cinematic-intro-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.cinematic-intro-logo-wrap {
+  position: relative;
+  width: clamp(120px, 22vw, 200px);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(0.7);
+  animation: cinematicLogoIn 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.cinematic-intro-logo-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(232, 168, 74, 0.45) 0%, transparent 68%);
+  filter: blur(6px);
+  animation: cinematicHaloPulse 2.6s ease-in-out infinite;
+  z-index: -1;
+}
+.cinematic-intro-logo {
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid rgba(232, 168, 74, 0.55);
+  box-shadow: 0 0 40px rgba(232, 168, 74, 0.35);
+}
+
+@keyframes cinematicLogoIn {
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes cinematicHaloPulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.98); }
+  50% { opacity: 0.9; transform: scale(1.04); }
+}
+
+.cinematic-intro-name {
+  margin-top: 26px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: clamp(1.9rem, 6vw, 3.6rem);
+  display: flex;
+  gap: 0.02em;
+}
+.cinematic-intro-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.5em);
+  background: linear-gradient(180deg, #fbe6b8 0%, #e8a84a 45%, #c8882a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cinematicLetterIn 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.cinematic-intro-letter.is-space { width: 0.35em; }
+@keyframes cinematicLetterIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cinematic-intro-slogan {
+  margin-top: 16px;
+  font-family: var(--font-body);
+  font-size: clamp(0.85rem, 2.4vw, 1.1rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #9a958c;
+  opacity: 0;
+  animation: cinematicFadeUp 900ms ease 1.5s forwards;
+}
+@keyframes cinematicFadeUp {
+  from { opacity: 0; transform: translateY(0.6em); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cinematic-intro-line {
+  margin-top: 26px;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, transparent, #e8a84a, transparent);
+  animation: cinematicLineGrow 1100ms ease 1.6s forwards;
+}
+@keyframes cinematicLineGrow {
+  to { width: min(280px, 70vw); }
+}
+
+.cinematic-intro-skip {
+  position: absolute;
+  bottom: 26px;
+  right: 26px;
+  z-index: 10;
+  padding: 8px 16px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9a958c;
+  background: transparent;
+  border: 1px solid rgba(233, 230, 223, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.cinematic-intro-skip:hover {
+  color: #e9e6df;
+  border-color: rgba(232, 168, 74, 0.6);
+}
+
+.cinematic-intro-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: linear-gradient(90deg, #c8882a, #e8a84a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-intro-logo-wrap,
+  .cinematic-intro-letter,
+  .cinematic-intro-slogan,
+  .cinematic-intro-line,
+  .cinematic-intro-logo-wrap::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+/* ============================================================
+   CATÁLOGO — CARROSSEL "SPOTLIGHT" ("catalog-spotlight")
+   Destaque animado de um produto por vez, com miniaturas, usando
+   fotos reais do catálogo (vindas da API/backend da loja).
+   ============================================================ */
+.catalog-spotlight-section {
+  padding: 8px 0 48px;
+}
+.catalog-spotlight-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.catalog-spotlight-eyebrow {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  color: var(--amber-lt);
+}
+.catalog-spotlight-title {
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.catalog-spotlight-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: linear-gradient(to bottom, var(--surface), var(--white));
+  box-shadow: var(--shadow-lg);
+}
+.catalog-spotlight-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 30%, rgba(232, 168, 74, 0.14), transparent 60%);
+}
+
+.catalog-spotlight-stage {
+  position: relative;
+  display: flex;
+  min-height: 420px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px 24px;
+}
+.catalog-spotlight-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: spotlightIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.catalog-spotlight-item.is-leaving {
+  animation: spotlightOut 0.3s ease both;
+}
+@keyframes spotlightIn {
+  from { opacity: 0; transform: scale(0.94) translateX(var(--spotlight-dir, 0)); filter: blur(8px); }
+  to { opacity: 1; transform: scale(1) translateX(0); filter: blur(0); }
+}
+@keyframes spotlightOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.catalog-spotlight-figure {
+  position: relative;
+  height: 240px;
+  width: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.catalog-spotlight-figure img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 30px 60px rgba(232, 168, 74, 0.25));
+}
+.catalog-spotlight-info { text-align: center; }
+.catalog-spotlight-category {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  color: var(--amber-lt);
+}
+.catalog-spotlight-name {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.catalog-spotlight-price-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+.catalog-spotlight-price-old {
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.catalog-spotlight-price-now {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.catalog-spotlight-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--ink-2);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+.catalog-spotlight-arrow:hover { border-color: var(--amber-lt); color: var(--amber-dk); }
+.catalog-spotlight-arrow.left { left: 16px; }
+.catalog-spotlight-arrow.right { right: 16px; }
+
+.catalog-spotlight-thumbs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px;
+}
+.catalog-spotlight-thumb {
+  position: relative;
+  height: 60px;
+  width: 60px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--white);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.catalog-spotlight-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.catalog-spotlight-thumb:hover { opacity: 0.9; }
+.catalog-spotlight-thumb.is-active {
+  opacity: 1;
+  border-color: var(--amber-lt);
+  box-shadow: 0 0 0 2px rgba(232, 168, 74, 0.35);
+}
+
+@media (min-width: 640px) {
+  .catalog-spotlight-title { font-size: 32px; }
+  .catalog-spotlight-stage { min-height: 460px; padding: 40px; }
+  .catalog-spotlight-figure { height: 280px; width: 280px; }
+  .catalog-spotlight-name { font-size: 26px; }
+}

@@ -2,13 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 
+const DOT_COUNT = 70;
+const AMBER = '#e8a84a';
+
 /**
- * Poeira dourada flutuando na escuridão da abertura. Canvas leve, com
- * devicePixelRatio limitado e render estático quando o usuário prefere
- * movimento reduzido. Portado do protótipo de front (abertura cinematográfica)
- * para o padrão JS/CSS deste projeto — sem dependências novas.
+ * Poeira dourada subindo lentamente na escuridão da abertura. Portado do
+ * protótipo em public/ag12-abertura.html (canvas leve, dpr limitado,
+ * render estático quando o usuário prefere movimento reduzido).
  */
-export default function ParticleField({ intensity = 1 }) {
+export default function ParticleField() {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -18,24 +20,21 @@ export default function ParticleField({ intensity = 1 }) {
     if (!ctx) return;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     let width = 0;
     let height = 0;
     let raf = 0;
-    let particles = [];
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const amber = '#E8A84A';
+    let dots = [];
 
     function spawn() {
-      const z = Math.random() * 0.8 + 0.2;
       return {
         x: Math.random() * width,
         y: Math.random() * height,
-        z,
-        r: z * 1.8 + 0.3,
-        vx: (Math.random() - 0.5) * 0.15 * z,
-        vy: (Math.random() - 0.5) * 0.15 * z - 0.05,
-        a: Math.random() * 0.5 + 0.1,
+        r: Math.random() * 1.8 + 0.4,
+        vy: Math.random() * 0.4 + 0.1,
+        vx: (Math.random() - 0.5) * 0.3,
+        a: Math.random() * 0.6 + 0.2,
       };
     }
 
@@ -45,17 +44,16 @@ export default function ParticleField({ intensity = 1 }) {
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const count = Math.round((Math.min(width, 900) / 900) * 70 * intensity);
-      particles = Array.from({ length: count }, spawn);
+      dots = Array.from({ length: DOT_COUNT }, spawn);
     }
 
     function drawStatic() {
       ctx.clearRect(0, 0, width, height);
-      for (const p of particles) {
+      for (const d of dots) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = amber;
-        ctx.globalAlpha = p.a * p.z;
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = AMBER;
+        ctx.globalAlpha = d.a;
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -63,17 +61,17 @@ export default function ParticleField({ intensity = 1 }) {
 
     function tick() {
       ctx.clearRect(0, 0, width, height);
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < -10) p.x = width + 10;
-        if (p.x > width + 10) p.x = -10;
-        if (p.y < -10) p.y = height + 10;
-        if (p.y > height + 10) p.y = -10;
+      for (const d of dots) {
+        d.y -= d.vy;
+        d.x += d.vx;
+        if (d.y < -5) {
+          d.y = height + 5;
+          d.x = Math.random() * width;
+        }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = amber;
-        ctx.globalAlpha = p.a * p.z;
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = AMBER;
+        ctx.globalAlpha = d.a;
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -93,7 +91,7 @@ export default function ParticleField({ intensity = 1 }) {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
     };
-  }, [intensity]);
+  }, []);
 
   return <canvas ref={canvasRef} aria-hidden="true" className="intro-particles" />;
 }

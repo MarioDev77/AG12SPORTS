@@ -8,19 +8,21 @@ const BRAND_NAME = 'AG12 SPORTS';
 const INTRO_SLOGAN = 'Vista sua paixão pelo esporte.';
 const LOGO_SRC = '/ag12-sports-logo.jpeg';
 
-// Duração de cada fase, em milissegundos: escuridão → logo + nome → slogan.
-const TIMING = { darkness: 700, logo: 1900, slogan: 1700 };
-const TOTAL_DURATION = TIMING.darkness + TIMING.logo + TIMING.slogan;
-const EXIT_DURATION = 700;
+// Duração total da abertura antes de revelar a loja, em milissegundos
+// (o logo, o nome, o slogan e a linha entram todos nesse intervalo,
+// com atrasos escalonados definidos no CSS — mesmo comportamento do
+// protótipo em public/ag12-abertura.html).
+const INTRO_DURATION = 4200;
+const EXIT_DURATION = 900;
 
 /**
  * Abertura cinematográfica exibida uma vez por sessão ao entrar na loja:
- * escuridão → logo com brilho pulsante → nome revelado letra a letra →
- * slogan → dissolve para o conteúdo real. Pode ser pulada a qualquer
- * momento. Respeita "prefers-reduced-motion" (entra direto na loja).
+ * logo com anel dourado e halo pulsante, nome revelado letra a letra,
+ * slogan e uma linha decorativa, sobre poeira dourada flutuando no
+ * escuro. Pode ser pulada a qualquer momento. Respeita
+ * "prefers-reduced-motion" (entra direto na loja).
  */
 export default function CinematicIntro({ onFinish }) {
-  const [phase, setPhase] = useState('darkness'); // darkness | logo | slogan
   const [exiting, setExiting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -47,14 +49,8 @@ export default function CinematicIntro({ onFinish }) {
 
   useEffect(() => {
     if (!ready || reducedMotion) return undefined;
-    const timers = [];
-    let elapsed = TIMING.darkness;
-    timers.push(setTimeout(() => setPhase('logo'), elapsed));
-    elapsed += TIMING.logo;
-    timers.push(setTimeout(() => setPhase('slogan'), elapsed));
-    elapsed += TIMING.slogan;
-    timers.push(setTimeout(finish, elapsed));
-    return () => timers.forEach(clearTimeout);
+    const timer = setTimeout(finish, INTRO_DURATION);
+    return () => clearTimeout(timer);
   }, [ready, reducedMotion, finish]);
 
   useEffect(() => {
@@ -62,7 +58,7 @@ export default function CinematicIntro({ onFinish }) {
     const start = performance.now();
     let raf = 0;
     const tick = (now) => {
-      const p = Math.min((now - start) / TOTAL_DURATION, 1);
+      const p = Math.min((now - start) / INTRO_DURATION, 1);
       setProgress(p);
       if (p < 1) raf = requestAnimationFrame(tick);
     };
@@ -72,8 +68,6 @@ export default function CinematicIntro({ onFinish }) {
 
   if (!ready || reducedMotion) return null;
 
-  const showLogo = phase === 'logo' || phase === 'slogan';
-  const showSlogan = phase === 'slogan';
   const letters = BRAND_NAME.split('');
 
   return (
@@ -82,52 +76,42 @@ export default function CinematicIntro({ onFinish }) {
       role="dialog"
       aria-label="Abertura AG12 SPORTS"
     >
-      <div className="cinematic-intro-vignette" />
-      <ParticleField intensity={showLogo ? 1.4 : 1} />
-      <div className="cinematic-intro-shadow" />
+      <ParticleField />
 
-      {showLogo && (
-        <div className="cinematic-intro-content">
-          <div className="cinematic-intro-beam" />
-
-          <div className="cinematic-intro-logo-wrap">
-            <div className="cinematic-intro-logo-glow" />
-            <Image
-              src={LOGO_SRC}
-              alt={`Logotipo ${BRAND_NAME}`}
-              fill
-              priority
-              sizes="300px"
-              className="cinematic-intro-logo"
-            />
-          </div>
-
-          <div className="cinematic-intro-name" aria-hidden="true">
-            {letters.map((char, i) => (
-              <span
-                key={`${char}-${i}`}
-                className={`cinematic-intro-letter${char === ' ' ? ' is-space' : ''}`}
-                style={{ animationDelay: `${0.55 + i * 0.05}s` }}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </span>
-            ))}
-          </div>
-          <span className="cinematic-intro-name-sr" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-            {BRAND_NAME}
-          </span>
-
-          {showSlogan && <p className="cinematic-intro-slogan">{INTRO_SLOGAN}</p>}
+      <div className="cinematic-intro-content">
+        <div className="cinematic-intro-logo-wrap">
+          <Image
+            src={LOGO_SRC}
+            alt={`Logo ${BRAND_NAME}`}
+            fill
+            priority
+            sizes="200px"
+            className="cinematic-intro-logo"
+          />
         </div>
-      )}
+
+        <h1 className="cinematic-intro-name" aria-label={BRAND_NAME}>
+          {letters.map((char, i) => (
+            <span
+              key={`${char}-${i}`}
+              aria-hidden="true"
+              className={`cinematic-intro-letter${char === ' ' ? ' is-space' : ''}`}
+              style={{ animationDelay: `${0.6 + i * 0.07}s` }}
+            >
+              {char === ' ' ? '' : char}
+            </span>
+          ))}
+        </h1>
+
+        <p className="cinematic-intro-slogan">{INTRO_SLOGAN}</p>
+        <div className="cinematic-intro-line" aria-hidden="true" />
+      </div>
+
+      <div className="cinematic-intro-progress" style={{ width: `${progress * 100}%` }} aria-hidden="true" />
 
       <button type="button" onClick={finish} className="cinematic-intro-skip">
         Pular introdução
       </button>
-
-      <div className="cinematic-intro-progress-track">
-        <div className="cinematic-intro-progress-fill" style={{ width: `${progress * 100}%` }} />
-      </div>
     </div>
   );
 }

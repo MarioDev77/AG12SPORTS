@@ -7,6 +7,8 @@ import HeroOffers from '@/components/HeroOffers';
 import PromoBanner from '@/components/PromoBanner';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import SizeCarousel from '@/components/SizeCarousel';
+import CatalogSpotlight from '@/components/store/CatalogSpotlight';
+import StoreIntroGate from '@/components/intro/StoreIntroGate';
 import { useProducts } from '@/lib/useProducts';
 
 export default function HomePage() {
@@ -23,7 +25,7 @@ export default function HomePage() {
   }
 
   return (
-    <>
+    <StoreIntroGate>
       {/* ====== HERO (carrossel de ofertas) ====== */}
       <HeroOffers />
 
@@ -57,6 +59,9 @@ export default function HomePage() {
 
       {/* ====== NUMERAÇÃO (tamanhos 35 ao 45) ====== */}
       <SizeCarousel />
+
+      {/* ====== DESTAQUES (carrossel spotlight com fotos reais do catálogo) ====== */}
+      <CatalogSpotlight />
 
       {/* ====== PRODUCTS ====== */}
       <section id="productsSection" aria-label="Catálogo de produtos">
@@ -94,6 +99,6 @@ export default function HomePage() {
           />
         </div>
       </section>
-    </>
+    </StoreIntroGate>
   );
 }

@@ -1,0 +1,28 @@
+ARQUIVOS MODIFICADOS/CRIADOS — AG12 SPORTS (abertura + carrossel de destaques)
+================================================================================
+
+Todos os caminhos abaixo são relativos à pasta "front/" do projeto.
+
+CRIADOS (novos arquivos, é só colocar nos mesmos caminhos):
+- components/intro/CinematicIntro.js   → a abertura (logo, nome letra a letra, slogan, linha, progresso)
+- components/intro/ParticleField.js    → a poeira dourada animada no fundo da abertura
+- components/intro/StoreIntroGate.js   → controla exibir a abertura 1x por sessão
+- components/store/CatalogSpotlight.js → carrossel de destaques do catálogo (fotos reais dos produtos, vindas da API)
+
+MODIFICADOS (arquivos que já existiam no projeto):
+- app/globals.css
+    → só foi ACRESCENTADO CSS no final do arquivo (nada foi removido do que já
+      existia antes dessas mudanças). Os dois blocos novos estão marcados com:
+        /* ABERTURA CINEMATOGRÁFICA — "cinematic-intro" */
+        /* CATÁLOGO — CARROSSEL "SPOTLIGHT" ("catalog-spotlight") */
+      Se preferir, copie só esses dois blocos para o final do seu globals.css
+      atual em vez de substituir o arquivo inteiro.
+
+- app/(loja)/page.js
+    → 3 mudanças pontuais:
+      1) import de CatalogSpotlight e StoreIntroGate
+      2) o <return> passou a ser envolvido por <StoreIntroGate>...</StoreIntroGate>
+         (era um fragmento <>...</>)
+      3) foi adicionado <CatalogSpotlight /> logo antes da seção de produtos
+
+Nenhum outro arquivo do projeto foi tocado. Testado com "next build" sem erros.
