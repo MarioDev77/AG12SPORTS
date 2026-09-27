@@ -29,7 +29,7 @@ if (!hasConnectionString && !hasRailwayVars && !hasGenericDbVars) {
   process.exit(1);
 }
 
-const REQUIRED_ENV = ['JWT_SECRET'];
+const REQUIRED_ENV = ['JWT_SECRET', 'CPF_PEPPER'];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`FATAL: missing required env var: ${key}`);
@@ -38,6 +38,10 @@ for (const key of REQUIRED_ENV) {
 }
 if ((process.env.JWT_SECRET || '').length < 32) {
   console.error('FATAL: JWT_SECRET must be at least 32 characters');
+  process.exit(1);
+}
+if (process.env.CPF_PEPPER.length < 32 || /^(change_me|replace_with|dev_pepper)/i.test(process.env.CPF_PEPPER)) {
+  console.error('FATAL: CPF_PEPPER must be a non-placeholder secret of at least 32 characters');
   process.exit(1);
 }
 

@@ -9,7 +9,7 @@ services:
       MYSQL_USER: ${DB_USER:-pitch}
       MYSQL_PASSWORD: ${DB_PASSWORD:-pitchpass}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - pitchfutebol-db-data:/var/lib/mysql
       - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql

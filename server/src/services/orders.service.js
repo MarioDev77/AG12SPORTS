@@ -5,10 +5,6 @@ const { pool } = require('../db/pool');
 const { calculateShippingEstimate } = require('./shipping.service');
 const { notifyNewOrder, notifyCustomerOrderReceived } = require('./email.service');
 
-function sha256(input) {
-  return crypto.createHash('sha256').update(input).digest('hex');
-}
-
 function normalizeCpf(cpfRaw) {
   return cpfRaw.replace(/[.\-\s]/g, '');
 }
@@ -111,7 +107,7 @@ async function createOrder(payload, userId) {
   const total = Number((subtotal + shipping.shippingCost).toFixed(2));
 
   const cpfNorm = normalizeCpf(customer.cpf);
-  const cpfHash = sha256(`${cpfNorm}:${process.env.CPF_PEPPER || 'dev_pepper'}`);
+    const cpfHash = crypto.createHmac('sha256', process.env.CPF_PEPPER).update(cpfNorm).digest('hex');
 
   const conn = await pool.getConnection();
   try {

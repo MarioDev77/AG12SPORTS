@@ -12,8 +12,8 @@ function normalizeCpf(cpfRaw) {
 
 function hashCpf(cpf) {
   return crypto
-    .createHash('sha256')
-    .update(`${normalizeCpf(cpf)}:${process.env.CPF_PEPPER || 'dev_pepper'}`)
+    .createHmac('sha256', process.env.CPF_PEPPER)
+    .update(normalizeCpf(cpf))
     .digest('hex');
 }
 

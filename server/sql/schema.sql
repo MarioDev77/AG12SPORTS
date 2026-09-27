@@ -86,8 +86,11 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 
+  CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE KEY uk_reviews_product_user (product_id, user_id),
-  INDEX idx_reviews_product_id (product_id)
+  INDEX idx_reviews_product_id (product_id),
+  INDEX idx_reviews_user_id (user_id)
 ) ENGINE=InnoDB;
 
 -- =============================================

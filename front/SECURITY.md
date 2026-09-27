@@ -96,7 +96,7 @@ upgrade-insecure-requests
 
 ### Brute Force / Credential Stuffing
 - Rate limiting reforçado em `/api/auth`: **10 req / 15 min** (vs 150 global).
-- Lockout em memória: após **5 falhas** consecutivas → bloqueio de **10 minutos** por username.
+- Rate limit por IP em `/api/auth`; não bloqueie uma conta por falhas de terceiros usando seu username.
 - bcrypt sempre executado (mesmo para username inválido) — elimina timing attack por short-circuit.
 - Comparação de username com **`crypto.timingSafeEqual`**.
 
@@ -125,13 +125,14 @@ upgrade-insecure-requests
 | Permissions-Policy | geolocation=(), camera=(), microphone=() |
 | Cross-Origin-Embedder-Policy | require-corp |
 | Cross-Origin-Opener-Policy | same-origin |
-| Cross-Origin-Resource-Policy | same-origin |
+| Cross-Origin-Resource-Policy | cross-origin (necessário para imagens servidas pela API consumidas pelo frontend) |
 
 ### CORS Restritivo
 - `origin` validado contra whitelist (não usa `*`).
-- Em produção: requests sem `Origin` são bloqueados.
+- Requests sem `Origin` são aceitos pelo middleware CORS; CORS é uma política de navegador, não um mecanismo de autenticação ou bloqueio de clientes diretos.
 - `credentials: false` — sem cookies cross-origin.
-- Métodos explícitos: `GET, POST, PATCH, DELETE`.
+- Métodos explícitos: `GET, POST, PUT, PATCH, DELETE`.
+- O frontend também define `nosniff`, `DENY` para framing, política de referrer e permissões de câmera/microfone/geolocalização em `next.config.mjs`.
 
 ### Injeção via Content-Type
 - Rejeita mutations sem `Content-Type: application/json` → `415 Unsupported Media Type`.
@@ -140,6 +141,9 @@ upgrade-insecure-requests
 ### Validação de Env no Boot
 - Variáveis críticas (`JWT_SECRET`, `DB_*`) verificadas na inicialização — processo encerra com `FATAL` se ausentes.
 - `JWT_SECRET` com menos de 32 chars → encerra.
+- `CPF_PEPPER` é obrigatório, não pode ser placeholder e precisa ter pelo menos 32 caracteres.
+- Tokens de usuários são comparados ao papel/status atual no banco; desativar/rebaixar a conta invalida o token existente.
+- Conexões para MySQL remoto usam TLS com validação de certificado; configure `DB_SSL_CA` se o provedor usar CA privada. `DB_SSL=false` remoto encerra o processo.
 
 ---
 
@@ -153,7 +157,7 @@ upgrade-insecure-requests
 | `src/utils/security.js` | **NOVO** — escapeHtml, parsePositiveInt, parseEnum, IDOR helpers |
 | `src/routes/index.js` | Prefixo admin oculto, bloqueio de paths comuns |
 | `src/routes/admin.js` | **NOVO** — CRUD admin completo, role obrigatória em todo o router |
-| `src/routes/auth.js` | timingSafeEqual, lockout, bcrypt sempre executado, payload mínimo |
+| `src/routes/auth.js` | comparação segura do login admin, rate limit por IP, bcrypt sempre executado, payload mínimo |
 | `src/routes/products.js` | parsePositiveInt, whitelist de query params |
 | `src/routes/orders.js` | IDOR check, owner-or-admin, 404 em vez de 403 |
 | `src/routes/errorHandler.js` | Sem stack em produção, erros DB opacos |

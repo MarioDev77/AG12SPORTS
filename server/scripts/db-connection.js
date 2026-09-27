@@ -23,10 +23,23 @@ function resolveConfig() {
   const connectionString = process.env.MYSQL_URL || process.env.DATABASE_URL;
 
   const wantsSsl = (host) => {
-    if (process.env.DB_SSL === 'false') return false;
+    const isLocal = ['localhost', '127.0.0.1', 'db', 'mysql'].includes((host || '').toLowerCase());
+    if (process.env.DB_SSL === 'false') {
+      if (!isLocal) {
+        console.error('FATAL: DB_SSL=false is not allowed for remote database hosts');
+        process.exit(1);
+      }
+      return false;
+    }
     if (process.env.DB_SSL === 'true') return true;
-    if (!host) return false;
-    return !['localhost', '127.0.0.1', 'db', 'mysql'].includes(host);
+    return !!host && !isLocal;
+  };
+
+  const sslOptions = (host) => {
+    if (!wantsSsl(host)) return undefined;
+    const ssl = { rejectUnauthorized: true };
+    if (process.env.DB_SSL_CA) ssl.ca = process.env.DB_SSL_CA.replace(/\\n/g, '\n');
+    return ssl;
   };
 
   if (connectionString) {
@@ -38,7 +51,7 @@ function resolveConfig() {
       user: decodeURIComponent(parsed.username),
       password: decodeURIComponent(parsed.password),
       database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
-      ssl: wantsSsl(host) ? { rejectUnauthorized: false } : undefined,
+      ssl: sslOptions(host),
     };
   }
 
@@ -50,7 +63,7 @@ function resolveConfig() {
       user: process.env.MYSQLUSER,
       password: process.env.MYSQLPASSWORD,
       database: process.env.MYSQLDATABASE,
-      ssl: wantsSsl(host) ? { rejectUnauthorized: false } : undefined,
+      ssl: sslOptions(host),
     };
   }
 
@@ -61,7 +74,7 @@ function resolveConfig() {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: wantsSsl(host) ? { rejectUnauthorized: false } : undefined,
+    ssl: sslOptions(host),
   };
 }
 

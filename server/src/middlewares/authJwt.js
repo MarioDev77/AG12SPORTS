@@ -1,6 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const { pool } = require('../db/pool');
 
 /**
  * authJwt — verifica Bearer token JWT.
@@ -10,7 +11,7 @@ const jwt = require('jsonwebtoken');
  *  - audience + issuer opcionais via env (ativados se definidos)
  *  - Mensagens de erro genéricas (não vaza motivo específico)
  */
-function authJwt(req, res, next) {
+async function authJwt(req, res, next) {
   const header = req.headers.authorization;
   if (!header || typeof header !== 'string') {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -28,19 +29,44 @@ function authJwt(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  try {
-    const verifyOptions = {
+  const verifyOptions = {
       algorithms: ['HS256'], // Nunca aceitar "none" ou algoritmos assimétricos aqui
-    };
-    if (process.env.JWT_ISSUER) verifyOptions.issuer = process.env.JWT_ISSUER;
-    if (process.env.JWT_AUDIENCE) verifyOptions.audience = process.env.JWT_AUDIENCE;
+  };
+  if (process.env.JWT_ISSUER) verifyOptions.issuer = process.env.JWT_ISSUER;
+  if (process.env.JWT_AUDIENCE) verifyOptions.audience = process.env.JWT_AUDIENCE;
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET, verifyOptions);
-    req.user = payload;
-    return next();
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET, verifyOptions);
   } catch {
     // Não vaza motivo (expirado, inválido, algoritmo errado…)
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // The environment-backed admin has no users-table row. Database users,
+  // however, must still be active and retain the role in their signed token.
+  // This makes disabling or demoting an account revoke existing sessions.
+  if (payload.sub === 'admin' && payload.role === 'admin') {
+    req.user = payload;
+    return next();
+  }
+  if (!/^\d+$/.test(String(payload.sub || ''))) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      'SELECT role, is_active FROM users WHERE id = ? LIMIT 1',
+      [String(payload.sub)]
+    );
+    const account = rows[0];
+    if (!account || !account.is_active || account.role !== payload.role) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    req.user = { ...payload, role: account.role };
+    return next();
+  } catch (err) {
+    return next(err);
   }
 }
 

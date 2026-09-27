@@ -20,26 +20,6 @@ function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, opts);
 }
 
-// ─── Lockout em memória ──────────────────────────────────────────────────────
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 10 * 60 * 1000;
-const loginAttempts = new Map();
-
-function isLockedOut(key) {
-  const e = loginAttempts.get(key);
-  if (!e) return false;
-  if (e.until && Date.now() < e.until) return true;
-  loginAttempts.delete(key);
-  return false;
-}
-function recordFailure(key) {
-  const e = loginAttempts.get(key) || { count: 0, until: null };
-  e.count += 1;
-  if (e.count >= MAX_ATTEMPTS) e.until = Date.now() + LOCKOUT_MS;
-  loginAttempts.set(key, e);
-}
-function clearAttempts(key) { loginAttempts.delete(key); }
-
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const RegisterSchema = z.object({
   name: z.string().min(2).max(120),
@@ -84,25 +64,19 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
 
     const { username, password } = parsed.data;
-    const lockKey = username.toLowerCase();
-
-    if (isLockedOut(lockKey))
-      return res.status(429).json({ error: 'Account temporarily locked. Try again later.' });
-
     // ── Tenta admin fixo primeiro ────────────────────────────────────────────
     const adminUser = process.env.ADMIN_USER;
     const adminHash = process.env.ADMIN_PASS_HASH;
 
     if (adminUser && adminHash) {
-      const usernameMatch = crypto.timingSafeEqual(
-        Buffer.from(username.padEnd(80)),
-        Buffer.from(adminUser.padEnd(80))
-      );
+      const usernameBytes = Buffer.from(username);
+      const adminBytes = Buffer.from(adminUser);
+      const usernameMatch = usernameBytes.length === adminBytes.length
+        && crypto.timingSafeEqual(usernameBytes, adminBytes);
       const dummyHash = '$2a$12$invalidhashpaddingtomakeitconstantlength000000000000';
       const ok = await bcrypt.compare(password, usernameMatch ? adminHash : dummyHash);
 
       if (usernameMatch && ok) {
-        clearAttempts(lockKey);
         const token = signToken({ sub: 'admin', role: 'admin' });
         return res.json({ token, expiresIn: 7200, user: { username: adminUser, role: 'admin' } });
       }
@@ -115,11 +89,9 @@ router.post('/login', async (req, res, next) => {
     const ok2 = await bcrypt.compare(password, hashToCheck);
 
     if (!dbUser || !ok2) {
-      recordFailure(lockKey);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    clearAttempts(lockKey);
     const token = signToken({ sub: String(dbUser.id), role: dbUser.role });
     return res.json({
       token,

@@ -47,22 +47,29 @@ ou Cloudflare R2). Posso montar isso depois se topar.
 
 O `render.yaml` já criou os "slots" das variáveis, mas os valores reais (por
 segurança) você preenche manualmente no dashboard: **seu serviço → Environment
-→ Add Environment Variable**. Copie estes valores (já são os mesmos do seu
-`server/.env` local, com os segredos placeholder já trocados por valores
-reais de verdade):
+→ Add Environment Variable**. Configure os nomes abaixo com valores novos,
+gerados localmente e guardados somente no gerenciador de segredos do provedor.
+Nunca mantenha credenciais reais neste arquivo ou no Git.
 
 ```
-CORS_ORIGIN=https://loja-virtual-mauve.vercel.app
-JWT_SECRET=225e6ef3c9dbfc25f35bc4bbf64542a7df56b92e82fba26fe48f89c2e93c561f7a2dcf60a03dcb446e8094395c775176
+CORS_ORIGIN=https://seu-dominio-frontend
+JWT_SECRET=<gere um segredo aleatorio com pelo menos 32 caracteres>
 JWT_ISSUER=pitch-futebol
 JWT_AUDIENCE=pitch-futebol-api
 ADMIN_ROUTE_PREFIX=/manage
-OWNERSHIP_TOKEN_SECRET=b71eb724672590601e8d1b9a8b6ce17a63017f42f0ab123e1093b80dcb7ee9c4
-CPF_PEPPER=a9aa00c93bd1e5c18d8afe4aadf9877400ab84e335b421c4
+OWNERSHIP_TOKEN_SECRET=<gere um segredo aleatorio com pelo menos 32 caracteres>
+CPF_PEPPER=<gere um segredo aleatorio com pelo menos 32 caracteres>
 ADMIN_USER=admin
 ADMIN_PASS_HASH=<< veja o Passo 2.1 abaixo >>
-MYSQL_URL=mysql://root:dIcBzKUgMygTCzBuhxEabmsYeyOIijSf@turntable.proxy.rlwy.net:25473/railway
+MYSQL_URL=mysql://<usuario>:<senha>@<host>:<porta>/<banco>
 ```
+
+**Rotação de credenciais:** uma versão anterior deste documento continha
+valores que pareciam credenciais reais de produção. Considere-os expostos:
+gere um novo `JWT_SECRET`, `OWNERSHIP_TOKEN_SECRET` e `CPF_PEPPER`, troque a
+senha do usuário MySQL e atualize as variáveis no provedor antes do próximo
+deploy. A troca do `JWT_SECRET` encerra todas as sessões atuais. Não reutilize
+os valores antigos nem os copie de versões anteriores do arquivo.
 
 ### Sobre previews da Vercel
 
