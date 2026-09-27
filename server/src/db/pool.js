@@ -25,16 +25,20 @@ function resolvePoolConfig() {
   // Em host local (127.0.0.1/localhost) ou docker-compose, mantemos SSL
   // desligado para não complicar o ambiente de desenvolvimento.
   const wantsSsl = (host) => {
-    const isLocal = ['localhost', '127.0.0.1', 'db', 'mysql'].includes((host || '').toLowerCase());
+    const normalizedHost = (host || '').toLowerCase();
+    const isLocal = ['localhost', '127.0.0.1', 'db', 'mysql'].includes(normalizedHost);
+    // Railway private-network traffic is already encrypted by its WireGuard
+    // tunnel. Avoid the self-signed MySQL proxy certificate on this route.
+    const isRailwayPrivate = normalizedHost.endsWith('.railway.internal');
     if (process.env.DB_SSL === 'false') {
-      if (!isLocal) {
-        console.error('FATAL: DB_SSL=false is not allowed for remote database hosts');
+      if (!isLocal && !isRailwayPrivate) {
+        console.error('FATAL: DB_SSL=false is only allowed for local or Railway private-network database hosts');
         process.exit(1);
       }
       return false;
     }
     if (process.env.DB_SSL === 'true') return true;
-    return !!host && !isLocal;
+    return !!host && !isLocal && !isRailwayPrivate;
   };
 
   const sslOptions = (host) => {

@@ -23,16 +23,19 @@ function resolveConfig() {
   const connectionString = process.env.MYSQL_URL || process.env.DATABASE_URL;
 
   const wantsSsl = (host) => {
-    const isLocal = ['localhost', '127.0.0.1', 'db', 'mysql'].includes((host || '').toLowerCase());
+    const normalizedHost = (host || '').toLowerCase();
+    const isLocal = ['localhost', '127.0.0.1', 'db', 'mysql'].includes(normalizedHost);
+    // Railway's private-network WireGuard tunnel encrypts service traffic.
+    const isRailwayPrivate = normalizedHost.endsWith('.railway.internal');
     if (process.env.DB_SSL === 'false') {
-      if (!isLocal) {
-        console.error('FATAL: DB_SSL=false is not allowed for remote database hosts');
+      if (!isLocal && !isRailwayPrivate) {
+        console.error('FATAL: DB_SSL=false is only allowed for local or Railway private-network database hosts');
         process.exit(1);
       }
       return false;
     }
     if (process.env.DB_SSL === 'true') return true;
-    return !!host && !isLocal;
+    return !!host && !isLocal && !isRailwayPrivate;
   };
 
   const sslOptions = (host) => {
