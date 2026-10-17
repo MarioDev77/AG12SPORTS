@@ -34,6 +34,7 @@ export const BRANDS = [
   { name: 'Nike', img: '/assets/img/marcas/nike.png' },
   { name: 'Adidas', img: '/assets/img/marcas/adidas.png' },
   { name: 'Puma', img: '/assets/img/marcas/puma.png' },
+  { name: 'Mizuno', img: '/assets/img/marcas/mizuno.svg' },
 ];
 
 /** Artes promocionais da loja (usadas nos carrosséis). w/h = proporção real do arquivo. */

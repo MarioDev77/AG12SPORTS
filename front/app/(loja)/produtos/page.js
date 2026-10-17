@@ -51,7 +51,16 @@ function ProdutosContent() {
     let cancelled = false;
     apiRequest('/products/meta')
       .then((meta) => {
-        if (!cancelled && Array.isArray(meta?.brands) && meta.brands.length) setBrands(meta.brands);
+        if (!cancelled && Array.isArray(meta?.brands) && meta.brands.length) {
+          // Une as marcas do catálogo com as marcas fixas da loja (ex.: Mizuno),
+          // para a marca aparecer no filtro mesmo antes do primeiro produto.
+          const merged = new Map();
+          [...meta.brands, ...BRANDS.map((b) => b.name)].forEach((b) => {
+            const key = String(b).toLowerCase();
+            if (!merged.has(key)) merged.set(key, b);
+          });
+          setBrands(Array.from(merged.values()).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })));
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };

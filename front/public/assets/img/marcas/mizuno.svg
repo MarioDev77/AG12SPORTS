@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="Mizuno">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6d77a"/>
+      <stop offset=".5" stop-color="#d9a441"/>
+      <stop offset="1" stop-color="#9a6a1c"/>
+    </linearGradient>
+    <radialGradient id="bg" cx=".35" cy=".3" r=".9">
+      <stop offset="0" stop-color="#2a2a28"/>
+      <stop offset="1" stop-color="#0b0b0a"/>
+    </radialGradient>
+  </defs>
+  <circle cx="200" cy="200" r="196" fill="url(#g)"/>
+  <circle cx="200" cy="200" r="186" fill="url(#bg)"/>
+  <path d="M60 120 Q150 40 250 30" fill="none" stroke="url(#g)" stroke-width="3" opacity=".7"/>
+  <path d="M340 280 Q250 360 150 370" fill="none" stroke="url(#g)" stroke-width="3" opacity=".7"/>
+  <text x="200" y="228" text-anchor="middle" font-family="'Arial Black','Impact',Arial,sans-serif" font-weight="900" font-size="64" letter-spacing="3" fill="url(#g)">MIZUNO</text>
+</svg>
