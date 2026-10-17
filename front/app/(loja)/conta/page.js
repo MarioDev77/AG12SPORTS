@@ -95,18 +95,18 @@ function AddressFormModal({ initial, onClose, onSaved, token }) {
             </select>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13.5 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 15 }}>
             <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((f) => ({ ...f, isDefault: e.target.checked }))} />
             Usar como endereço padrão
           </label>
 
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 10 }}>
             {cepStatus === 'loading' ? 'Consultando CEP…' : ''}
           </p>
 
-          {error && <p style={{ color: '#b91c1c', fontSize: 12.5, marginTop: 8 }}>{error}</p>}
+          {error && <p style={{ color: '#b91c1c', fontSize: 14, marginTop: 8 }}>{error}</p>}
 
-          <button type="submit" disabled={saving} className="btn-primary" style={{ fontSize: 13, marginTop: 16 }}>
+          <button type="submit" disabled={saving} className="btn-primary" style={{ fontSize: 18, marginTop: 16 }}>
             {saving ? 'Salvando…' : 'Salvar endereço'}
           </button>
         </form>
@@ -284,7 +284,7 @@ export default function ContaPage() {
                 type="button"
                 onClick={() => setMode('login')}
                 className={mode === 'login' ? 'btn-primary' : 'btn-secondary'}
-                style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}
+                style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}
               >
                 Entrar
               </button>
@@ -292,7 +292,7 @@ export default function ContaPage() {
                 type="button"
                 onClick={() => setMode('register')}
                 className={mode === 'register' ? 'btn-primary' : 'btn-secondary'}
-                style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}
+                style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}
               >
                 Criar conta
               </button>
@@ -300,7 +300,7 @@ export default function ContaPage() {
 
             {mode === 'login' && (
               <>
-                <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.3em', color: 'var(--muted)', marginBottom: 24 }}>
+                <p style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0, color: 'var(--muted)', marginBottom: 24 }}>
                   Entrar na minha conta
                 </p>
                 <div className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
@@ -331,7 +331,7 @@ export default function ContaPage() {
 
             {mode === 'register' && (
               <>
-                <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.3em', color: 'var(--muted)', marginBottom: 24 }}>
+                <p style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0, color: 'var(--muted)', marginBottom: 24 }}>
                   Criar minha conta
                 </p>
                 <form onSubmit={handleRegister} className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
@@ -399,19 +399,19 @@ export default function ContaPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: 'var(--surface)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => setTab('pedidos')} className={tab === 'pedidos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+        <button type="button" onClick={() => setTab('pedidos')} className={tab === 'pedidos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 18 }}>
           <iconify-icon className="iconify" icon="mdi:receipt-text-outline" style={{ fontSize: 15 }} />
           Meus pedidos
         </button>
-        <button type="button" onClick={() => setTab('perfil')} className={tab === 'perfil' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+        <button type="button" onClick={() => setTab('perfil')} className={tab === 'perfil' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 18 }}>
           <iconify-icon className="iconify" icon="mdi:account-outline" style={{ fontSize: 15 }} />
           Meu perfil
         </button>
-        <button type="button" onClick={() => setTab('enderecos')} className={tab === 'enderecos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+        <button type="button" onClick={() => setTab('enderecos')} className={tab === 'enderecos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 18 }}>
           <iconify-icon className="iconify" icon="mdi:map-marker-outline" style={{ fontSize: 15 }} />
           Endereços
         </button>
-        <button type="button" onClick={() => setTab('favoritos')} className={tab === 'favoritos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 13 }}>
+        <button type="button" onClick={() => setTab('favoritos')} className={tab === 'favoritos' ? 'btn-primary' : 'btn-secondary'} style={{ fontSize: 18 }}>
           <iconify-icon className="iconify" icon="mdi:heart-outline" style={{ fontSize: 15 }} />
           Favoritos {wishIds.length > 0 ? `(${wishIds.length})` : ''}
         </button>
@@ -453,13 +453,13 @@ export default function ContaPage() {
                     >
                       <div>
                         <p style={{ fontWeight: 700, fontSize: 14 }}>Pedido #{order.id}</p>
-                        <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 2 }}>
                           {order.createdAt ? new Date(order.createdAt).toLocaleDateString('pt-BR') : ''}
                         </p>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <span style={{
-                          fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                          fontSize: 14, fontWeight: 700,
                           color: ORDER_STATUS_COLORS[order.status] || 'var(--muted)',
                         }}>
                           {orderStatusLabel(order.status)}
@@ -471,16 +471,16 @@ export default function ContaPage() {
 
                     {open && (
                       <div style={{ padding: '0 18px 18px', borderTop: '1px solid var(--border)' }}>
-                        {!detail && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 14 }}>Carregando detalhes…</p>}
+                        {!detail && <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 14 }}>Carregando detalhes…</p>}
                         {detail && (
                           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {detail.items.map((it, i) => (
-                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                                 <span>{it.qty}x {it.name}{it.size ? ` (tam. ${it.size})` : ''}</span>
                                 <span>{brl(it.lineTotal)}</span>
                               </div>
                             ))}
-                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 14, color: 'var(--muted)' }}>
                               <p>Entrega: {detail.address.logradouro}, {detail.address.numero} — {detail.address.cidade}/{detail.address.uf}</p>
                               <p>Frete: {brl(detail.shippingCost)} · Prazo: {detail.estimatedMinDays}–{detail.estimatedMaxDays} dias úteis</p>
                               {formatDeliveryWindow(detail.estimatedMinDate, detail.estimatedMaxDate) && (
@@ -521,24 +521,24 @@ export default function ContaPage() {
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Meu perfil</h2>
           <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 20, maxWidth: 480 }}>
             <form onSubmit={handleSaveProfile} className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <label style={{ fontSize: 14, color: 'var(--muted)' }}>
                 Nome completo
                 <input className="field-input" value={profileForm.name} onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))} />
               </label>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <label style={{ fontSize: 14, color: 'var(--muted)' }}>
                 Telefone
                 <input className="field-input" value={profileForm.phone} onChange={(e) => setProfileForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))} />
               </label>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <label style={{ fontSize: 14, color: 'var(--muted)' }}>
                 E-mail (não editável)
                 <input className="field-input" value={user?.email || ''} disabled style={{ opacity: 0.6 }} />
               </label>
-              <label style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <label style={{ fontSize: 14, color: 'var(--muted)' }}>
                 Usuário (não editável)
                 <input className="field-input" value={user?.username || ''} disabled style={{ opacity: 0.6 }} />
               </label>
               {profileErr && <div className="error-box">{profileErr}</div>}
-              {profileStatus === 'saved' && <p style={{ color: '#15803d', fontSize: 12.5 }}>Perfil atualizado.</p>}
+              {profileStatus === 'saved' && <p style={{ color: '#15803d', fontSize: 14 }}>Perfil atualizado.</p>}
               <button type="submit" disabled={profileStatus === 'saving'} className="btn-primary" style={{ justifyContent: 'center' }}>
                 {profileStatus === 'saving' ? 'Salvando…' : 'Salvar alterações'}
               </button>
@@ -553,7 +553,7 @@ export default function ContaPage() {
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>
               Meus endereços {addresses.length > 0 ? `(${addresses.length})` : ''}
             </h2>
-            <button onClick={() => setAddressModal({})} className="btn-primary" style={{ fontSize: 13 }}>
+            <button onClick={() => setAddressModal({})} className="btn-primary" style={{ fontSize: 18 }}>
               <iconify-icon className="iconify" icon="mdi:plus" style={{ fontSize: 15 }} />
               Adicionar
             </button>
@@ -576,17 +576,17 @@ export default function ContaPage() {
                 <div key={addr.id} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     {!!addr.is_default && (
-                      <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--amber-dk)' }}>Padrão</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--amber-dk)' }}>Padrão</span>
                     )}
                     <p style={{ fontSize: 14, marginTop: 2 }}>{addr.logradouro}, {addr.numero}{addr.complemento ? ` — ${addr.complemento}` : ''}</p>
-                    <p style={{ fontSize: 13, color: 'var(--muted)' }}>{addr.bairro} · {addr.cidade}/{addr.uf} · CEP {addr.cep}</p>
+                    <p style={{ fontSize: 14, color: 'var(--muted)' }}>{addr.bairro} · {addr.cidade}/{addr.uf} · CEP {addr.cep}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {!addr.is_default && (
-                      <button onClick={() => handleSetDefaultAddress(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}>Tornar padrão</button>
+                      <button onClick={() => handleSetDefaultAddress(addr)} className="btn-secondary" style={{ fontSize: 14, padding: '4px 10px' }}>Tornar padrão</button>
                     )}
-                    <button onClick={() => setAddressModal(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }}>Editar</button>
-                    <button onClick={() => handleDeleteAddress(addr)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px', color: '#b91c1c' }}>Excluir</button>
+                    <button onClick={() => setAddressModal(addr)} className="btn-secondary" style={{ fontSize: 14, padding: '4px 10px' }}>Editar</button>
+                    <button onClick={() => handleDeleteAddress(addr)} className="btn-secondary" style={{ fontSize: 14, padding: '4px 10px', color: '#b91c1c' }}>Excluir</button>
                   </div>
                 </div>
               ))}
@@ -630,7 +630,7 @@ export default function ContaPage() {
                     alt={(p && p.name) || 'Produto'}
                     style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, marginBottom: 10 }}
                   />
-                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>{(p && p.brand) || ''}</p>
+                  <p style={{ fontSize: 14, color: 'var(--muted)' }}>{(p && p.brand) || ''}</p>
                   <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14 }}>{(p && p.name) || `Produto #${id}`}</p>
                   {p && p.price ? (
                     <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, color: 'var(--amber-dk)', marginTop: 4 }}>{brl(p.price)}</p>
@@ -640,7 +640,7 @@ export default function ContaPage() {
                   type="button"
                   onClick={() => toggleWish(id)}
                   className="btn-secondary"
-                  style={{ width: '100%', justifyContent: 'center', marginTop: 10, fontSize: 13 }}
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 10, fontSize: 18 }}
                 >
                   Remover dos favoritos
                 </button>

@@ -32,3 +32,14 @@ BACKEND (pasta server/) — 2 arquivos, mudança só aditiva. PRECISA DE DEPLOY.
     ?category=chuteiras             (society + futsal + campo)
   Sem o deploy, as abas não separam produtos (o front não quebra, só não filtra).
 Não há migration nova.
+
+======================================================================
+ETAPAS 2 E 3 — produto, carrinho, favoritos, checkout e conta (só front)
+- app/(loja)/produto/[id]/page.js
+    selo Pronta entrega / Encomenda; produto sob encomenda troca "Comprar agora"
+    por "Encomendar pelo WhatsApp" (mensagem já com nome, tamanho e quantidade)
+- app/ag12-theme.css (blocos finais): botões, página do produto, carrinho,
+    favoritos, passos e campos do checkout, pagamento, resumo, conta, modais
+- app/(loja)/conta/page.js e checkout/page.js: textos pequenos aumentados e
+    rótulos em caixa-alta trocados por frase normal (sem mudar a lógica)
+Lógica de carrinho, frete, pedido e login NÃO foi alterada.

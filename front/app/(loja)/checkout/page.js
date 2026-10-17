@@ -370,10 +370,10 @@ export default function CheckoutPage() {
             <p className="checkout-section-sub">Seu pedido fica salvo na sua conta — você acompanha o status em &quot;Minha conta&quot;.</p>
 
             <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--bg)', borderRadius: 10, padding: 4 }}>
-              <button type="button" onClick={() => setAuthMode('login')} className={authMode === 'login' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}>
+              <button type="button" onClick={() => setAuthMode('login')} className={authMode === 'login' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}>
                 Entrar
               </button>
-              <button type="button" onClick={() => setAuthMode('register')} className={authMode === 'register' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}>
+              <button type="button" onClick={() => setAuthMode('register')} className={authMode === 'register' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}>
                 Criar conta
               </button>
             </div>
@@ -485,7 +485,7 @@ export default function CheckoutPage() {
                   onClick={handleUseLocation}
                   disabled={geoStatus === 'loading'}
                   className="btn-secondary"
-                  style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}
+                  style={{ fontSize: 14, whiteSpace: 'nowrap' }}
                 >
                   <iconify-icon
                     className="iconify"
@@ -504,7 +504,7 @@ export default function CheckoutPage() {
                       type="button"
                       onClick={() => pickSavedAddress(addr)}
                       className="btn-secondary"
-                      style={{ fontSize: 12.5, textAlign: 'left' }}
+                      style={{ fontSize: 14, textAlign: 'left' }}
                     >
                       <iconify-icon className="iconify" icon="mdi:map-marker-outline" style={{ fontSize: 14 }} />
                       {addr.logradouro}, {addr.numero} — {addr.cidade}/{addr.uf}
@@ -537,10 +537,10 @@ export default function CheckoutPage() {
                   ))}
                 </select>
               </div>
-              {cepStatus === 'loading' && <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>Consultando CEP…</p>}
+              {cepStatus === 'loading' && <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 8 }}>Consultando CEP…</p>}
 
               {isAuthenticated && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, fontSize: 14, color: 'var(--muted)' }}>
                   <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
                   Salvar este endereço para próximas compras
                 </label>
@@ -631,7 +631,7 @@ export default function CheckoutPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {items.map((it) => (
-                  <div key={`${it.productId}:${it.size || ''}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>
+                  <div key={`${it.productId}:${it.size || ''}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15 }}>
                     <span>{it.qty}x {it.name}{it.size ? ` (tam. ${it.size})` : ''}</span>
                     <strong>{brl(it.unitPrice * it.qty)}</strong>
                   </div>

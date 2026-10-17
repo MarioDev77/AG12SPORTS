@@ -154,9 +154,14 @@ export default function ProdutoPage() {
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
   const wished      = isWished(product.id);
   const wppLink     = `https://wa.me/${WPP_NUMBER}?text=${encodeURIComponent(`Olá! Tenho interesse no produto: ${product.name}`)}`;
+  // Sem estoque liberado para o site (available_for_order = 0) o produto é sob encomenda.
+  const isOrderOnly = product.availableForOrder === false;
+  const orderLink   = `https://wa.me/${WPP_NUMBER}?text=${encodeURIComponent(
+    `Olá! Quero encomendar: ${product.name}${selectedSize ? `, tamanho ${selectedSize}` : ''}, ${qty} ${qty > 1 ? 'unidades' : 'unidade'}.`
+  )}`;
 
   return (
-    <div style={{ paddingTop: 0, maxWidth: 960, margin: '0 auto', padding: '40px 24px 60px' }}>
+    <div style={{ paddingTop: 0, margin: '0 auto', padding: '40px 24px 72px', maxWidth: 1100 }}>
       {/* Breadcrumb */}
       <nav style={{ marginBottom: 24, fontSize: 13, color: 'var(--muted)' }} aria-label="Breadcrumb">
         <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
@@ -167,7 +172,7 @@ export default function ProdutoPage() {
           Produtos
         </button>
         <span style={{ margin: '0 8px' }}>›</span>
-        <span style={{ color: 'var(--text)' }}>{product.name}</span>
+        <span style={{ color: 'var(--ink)' }}>{product.name}</span>
       </nav>
 
       {/* Grid: imagem + dados */}
@@ -177,7 +182,14 @@ export default function ProdutoPage() {
 
         {/* Dados */}
         <div className="modal-body">
-          <p className="modal-brand-label">Marca · <span>{product.brand}</span></p>
+          <p className="modal-brand-label">
+            {product.brand}
+            {typeof product.availableForOrder === 'boolean' && (
+              <span className={`product-badge pdp-badge ${product.availableForOrder ? 'ready' : 'order'}`}>
+                {product.availableForOrder ? 'Pronta entrega' : 'Encomenda'}
+              </span>
+            )}
+          </p>
           <h1 className="modal-name" style={{ fontSize: 26, marginBottom: 16 }}>{product.name}</h1>
 
           <div className="modal-prices" style={{ marginBottom: 16 }}>
@@ -221,17 +233,31 @@ export default function ProdutoPage() {
           </div>
 
           {/* Ações principais */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-            <button onClick={handleBuyNow} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-              <iconify-icon className="iconify" icon="mdi:flash-outline" style={{ fontSize: 16 }} />
-              Comprar agora
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
-            <button onClick={handleAddToCart} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
-              <iconify-icon className="iconify" icon="mdi:cart-plus" style={{ fontSize: 16 }} />
-              Adicionar ao carrinho
-            </button>
+          {isOrderOnly ? (
+            <div className="pdp-order">
+              <p className="pdp-order-note">
+                Este modelo é sob encomenda. Confirme prazo, valor e numeração com a gente pelo WhatsApp.
+              </p>
+              <a href={orderLink} target="_blank" rel="noopener" className="btn-primary" style={{ justifyContent: 'center', textDecoration: 'none' }}>
+                <iconify-icon className="iconify" icon="mdi:whatsapp" style={{ fontSize: 20 }} />
+                Encomendar pelo WhatsApp
+              </a>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+              <button onClick={handleBuyNow} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                <iconify-icon className="iconify" icon="mdi:flash-outline" style={{ fontSize: 18 }} />
+                Comprar agora
+              </button>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, marginTop: isOrderOnly ? 10 : 0 }}>
+            {!isOrderOnly && (
+              <button onClick={handleAddToCart} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
+                <iconify-icon className="iconify" icon="mdi:cart-plus" style={{ fontSize: 18 }} />
+                Adicionar ao carrinho
+              </button>
+            )}
             <button
               onClick={handleWish}
               className="btn-secondary"
