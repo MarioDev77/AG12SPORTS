@@ -10,6 +10,7 @@ const compression = require('compression');
 const path = require('path');
 
 const { errorHandler } = require('./routes/errorHandler');
+const { ensureSchema } = require('./db/ensureSchema');
 const { apiRouter } = require('./routes');
 const { UPLOAD_DIR } = require('./middlewares/upload');
 
@@ -224,9 +225,9 @@ app.use(errorHandler);
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, '0.0.0.0', () => {
+ensureSchema().finally(() => app.listen(PORT, '0.0.0.0', () => {
   console.log(`[boot] Pitch Futebol API on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
   console.log(`[boot] Uploads: ${UPLOAD_DIR}`);
-});
+}));
 
 module.exports = app;
