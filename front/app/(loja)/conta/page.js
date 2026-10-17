@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useWish } from '@/context/WishContext';
 import { apiRequest } from '@/lib/api';
+import { safeHttpUrl } from '@/lib/safeUrl.mjs';
 import { brl, orderStatusLabel, shipmentScopeLabel, formatDeliveryWindow, ORDER_STATUS_COLORS, maskCep, maskPhone } from '@/lib/format';
 
 const EMPTY_REGISTER = { name: '', username: '', email: '', phone: '', password: '' };
@@ -494,8 +495,8 @@ export default function ContaPage() {
                               {detail.tracking?.code && (
                                 <p>
                                   Rastreio: {detail.tracking.carrier ? `${detail.tracking.carrier} — ` : ''}
-                                  {detail.tracking.url ? (
-                                    <a href={detail.tracking.url} target="_blank" rel="noopener" style={{ color: 'var(--amber-dk)', fontWeight: 600 }}>
+                                  {safeHttpUrl(detail.tracking.url) ? (
+                                    <a href={safeHttpUrl(detail.tracking.url)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--amber-dk)', fontWeight: 600 }}>
                                       {detail.tracking.code}
                                     </a>
                                   ) : (

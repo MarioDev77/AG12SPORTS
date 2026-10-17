@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
+import { jwtExpiryMs } from '@/lib/jwt.mjs';
 
 /**
  * AuthContext — réplica do padrão authToken/adminToken do front vanilla.
@@ -22,6 +23,18 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
   }, []);
+
+  // Expiração: o JWT dura 2h. Quando vence, encerra a sessão em memória
+  // (em vez de deixar a tela "logada" com requisições falhando em 401).
+  // Só lê o campo exp para agendar; quem valida o token é sempre o servidor.
+  useEffect(() => {
+    if (!token) return undefined;
+    const expMs = jwtExpiryMs(token);
+    if (!expMs) return undefined;
+    const wait = Math.max(0, expMs - Date.now());
+    const id = setTimeout(() => { setToken(null); setUser(null); }, Math.min(wait, 2147483647));
+    return () => clearTimeout(id);
+  }, [token]);
 
   /**
    * Login direto (usado no painel admin e em telas de login dedicadas).

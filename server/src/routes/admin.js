@@ -14,7 +14,7 @@ const { z } = require('zod');
 const { authJwt } = require('../middlewares/authJwt');
 const { requireRole } = require('../middlewares/requireRole');
 const { uploadImage, uploadImages, UPLOAD_DIR, MAX_GALLERY_IMAGES } = require('../middlewares/upload');
-const { parsePositiveInt } = require('../utils/security');
+const { parsePositiveInt, isHttpUrl } = require('../utils/security');
 const { pool } = require('../db/pool');
 
 const router = express.Router();
@@ -840,7 +840,8 @@ const OrderTrackingSchema = z.object({
   shipmentScope: z.enum(['nacional', 'internacional']).optional(),
   trackingCarrier: z.string().max(80).optional().nullable(),
   trackingCode: z.string().max(60).optional().nullable(),
-  trackingUrl: z.union([z.string().url().max(255), z.literal('')]).optional().nullable(),
+  // Só http(s): z.string().url() aceitaria javascript:/data: (XSS no link de rastreio).
+  trackingUrl: z.union([z.string().max(255).refine(isHttpUrl, 'URL de rastreio deve começar com http:// ou https://'), z.literal('')]).optional().nullable(),
   // originId: de qual depósito (etapa 21) o pedido saiu. null limpa a
   // escolha (volta a aparecer como "sem origem definida").
   originId: z.union([z.coerce.number().int().positive(), z.null()]).optional(),

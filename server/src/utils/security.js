@@ -172,7 +172,22 @@ function requireOwnerOrAdmin(getOwnerId) {
   };
 }
 
+/**
+ * isHttpUrl — true só para URLs absolutas http(s). Bloqueia javascript:, data:,
+ * vbscript:, file: etc. (z.string().url() aceita todos eles).
+ */
+function isHttpUrl(value) {
+  if (typeof value !== 'string') return false;
+  try {
+    const u = new URL(value.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
+  isHttpUrl,
   escapeHtml,
   sanitizeObject,
   parsePositiveInt,
