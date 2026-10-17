@@ -18,7 +18,8 @@ const MAX_IMAGES   = 5;
 const EMPTY_FORM = {
   name: '', brand: '', category: 'society', price: '', oldPrice: '',
   description: '', sizes: '', stock_qty: 0, is_active: true, is_featured: false,
-  available_for_order: false,
+  available_for_order: false,   // Pronta entrega
+  available_on_request: true,   // Disponível para pedidos (encomenda)
 };
 
 const EMPTY_FILTERS = { category: '', brand: '', minPrice: '', maxPrice: '', size: '' };
@@ -157,6 +158,7 @@ export default function AdminProdutosPage() {
       is_active:   product.is_active === undefined ? true : Boolean(product.is_active),
       is_featured: !!product.is_featured,
       available_for_order: !!product.available_for_order,
+      available_on_request: !!product.available_on_request,
     });
     // Galeria já salva no banco — normaliza pra ordem de exibição.
     const existingImages = (product.images && product.images.length > 0)
@@ -375,6 +377,7 @@ export default function AdminProdutosPage() {
       fd.append('is_active',   formData.is_active ? '1' : '0');
       fd.append('is_featured', formData.is_featured ? '1' : '0');
       fd.append('available_for_order', formData.available_for_order ? '1' : '0');
+      fd.append('available_on_request', formData.available_on_request ? '1' : '0');
       // No modo criação, a primeira foto pendente vira a imagem de capa
       // (o restante da galeria sobe logo depois que o produto existe).
       if (!editingId && pendingFiles.length > 0) {
@@ -594,7 +597,7 @@ export default function AdminProdutosPage() {
                   </p>
                 </div>
 
-                <div className="field-full" style={{ display: 'flex', gap: 20 }}>
+                <div className="field-full" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
                     <input type="checkbox" checked={formData.is_active} onChange={(e) => handleFieldChange('is_active', e.target.checked)} />
                     Ativo
@@ -605,9 +608,18 @@ export default function AdminProdutosPage() {
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
                     <input type="checkbox" checked={formData.available_for_order} onChange={(e) => handleFieldChange('available_for_order', e.target.checked)} />
+                    Pronta entrega
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={formData.available_on_request} onChange={(e) => handleFieldChange('available_on_request', e.target.checked)} />
                     Disponível para pedidos
                   </label>
                 </div>
+                <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
+                  Pronta entrega: em estoque, o cliente compra direto pelo site (estoque por tamanho).
+                  Disponível para pedidos: encomenda, o cliente combina prazo, valor e numeração pelo WhatsApp.
+                  Pode marcar as duas.
+                </p>
 
                 {editingId && formData.available_for_order && (
                   <div className="field-full" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
@@ -669,7 +681,7 @@ export default function AdminProdutosPage() {
 
                 {editingId && formData.available_for_order && (
                   <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
-                    Os campos "Tamanhos" e "Estoque" acima continuam existindo para compatibilidade, mas para produtos com pedidos ativados o estoque real é o desta seção.
+                    Os campos "Tamanhos" e "Estoque" acima continuam existindo para compatibilidade, mas para produtos de pronta entrega o estoque real é o desta seção.
                   </p>
                 )}
 

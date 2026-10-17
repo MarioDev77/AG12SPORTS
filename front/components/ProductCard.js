@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useWish } from '@/context/WishContext';
 import { brl } from '@/lib/format';
 import { productImageUrl } from '@/lib/api';
+import { fulfillmentOf } from '@/lib/fulfillment.mjs';
 
 /**
  * ProductCard — réplica de renderProductCard() em front/assets/app.js,
@@ -23,6 +24,7 @@ export default function ProductCard({ product, onToast }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const wished = isWished(product.id);
+  const fulfillment = fulfillmentOf(product);
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
   const discountPct = hasDiscount ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
 
@@ -90,11 +92,8 @@ export default function ProductCard({ product, onToast }) {
     <div className="product-card" onPointerDown={handlePointerDown} onClick={handleCardClick}>
       <div className="product-img-wrap">
         <div className="product-badges">
-          {typeof product.availableForOrder === 'boolean' && (
-            <span className={`product-badge ${product.availableForOrder ? 'ready' : 'order'}`}>
-              {product.availableForOrder ? 'Pronta entrega' : 'Encomenda'}
-            </span>
-          )}
+          {fulfillment.pronta && <span className="product-badge ready">Pronta entrega</span>}
+          {fulfillment.encomenda && <span className="product-badge order">Encomenda</span>}
           {hasDiscount && <span className="product-badge off">-{discountPct}%</span>}
         </div>
         <button

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRequest } from '@/lib/api';
 import { CHUTEIRA_CATS } from '@/lib/store';
+import { fulfillmentOf } from '@/lib/fulfillment.mjs';
 
 const PAGE_LIMIT = 12;
 
@@ -27,9 +28,10 @@ function buildQuery(params) {
  */
 function matchesClientFilters(p, category, fulfillment) {
   if (category === 'chuteiras' && p.category && !CHUTEIRA_CATS.includes(p.category)) return false;
-  if (fulfillment && typeof p.availableForOrder === 'boolean') {
-    if (fulfillment === 'pronta' && !p.availableForOrder) return false;
-    if (fulfillment === 'encomenda' && p.availableForOrder) return false;
+  const f = fulfillmentOf(p);
+  if (fulfillment && f.known) {
+    if (fulfillment === 'pronta' && !f.pronta) return false;
+    if (fulfillment === 'encomenda' && !f.encomenda) return false;
   }
   return true;
 }

@@ -7,6 +7,7 @@ import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { apiRequest } from '@/lib/api';
 import { brl } from '@/lib/format';
+import { fulfillmentOf } from '@/lib/fulfillment.mjs';
 import ProductGallery from '@/components/ProductGallery';
 
 const WPP_NUMBER = '557598756510';
@@ -155,7 +156,8 @@ export default function ProdutoPage() {
   const wished      = isWished(product.id);
   const wppLink     = `https://wa.me/${WPP_NUMBER}?text=${encodeURIComponent(`Olá! Tenho interesse no produto: ${product.name}`)}`;
   // Sem estoque liberado para o site (available_for_order = 0) o produto é sob encomenda.
-  const isOrderOnly = product.availableForOrder === false;
+  const fulfillment = fulfillmentOf(product);
+  const isOrderOnly = fulfillment.known && !fulfillment.pronta;
   const orderLink   = `https://wa.me/${WPP_NUMBER}?text=${encodeURIComponent(
     `Olá! Quero encomendar: ${product.name}${selectedSize ? `, tamanho ${selectedSize}` : ''}, ${qty} ${qty > 1 ? 'unidades' : 'unidade'}.`
   )}`;
@@ -184,11 +186,8 @@ export default function ProdutoPage() {
         <div className="modal-body">
           <p className="modal-brand-label">
             {product.brand}
-            {typeof product.availableForOrder === 'boolean' && (
-              <span className={`product-badge pdp-badge ${product.availableForOrder ? 'ready' : 'order'}`}>
-                {product.availableForOrder ? 'Pronta entrega' : 'Encomenda'}
-              </span>
-            )}
+            {fulfillment.pronta && <span className="product-badge pdp-badge ready">Pronta entrega</span>}
+            {fulfillment.encomenda && <span className="product-badge pdp-badge order">Encomenda</span>}
           </p>
           <h1 className="modal-name" style={{ fontSize: 26, marginBottom: 16 }}>{product.name}</h1>
 
@@ -250,6 +249,14 @@ export default function ProdutoPage() {
                 Comprar agora
               </button>
             </div>
+          )}
+          {fulfillment.pronta && fulfillment.encomenda && (
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 12px' }}>
+              Quer outra numeração ou mais unidades?{' '}
+              <a href={orderLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--amber-dk)', fontWeight: 600 }}>
+                Encomende pelo WhatsApp
+              </a>
+            </p>
           )}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, marginTop: isOrderOnly ? 10 : 0 }}>
             {!isOrderOnly && (
