@@ -43,3 +43,12 @@ ETAPAS 2 E 3 — produto, carrinho, favoritos, checkout e conta (só front)
 - app/(loja)/conta/page.js e checkout/page.js: textos pequenos aumentados e
     rótulos em caixa-alta trocados por frase normal (sem mudar a lógica)
 Lógica de carrinho, frete, pedido e login NÃO foi alterada.
+
+======================================================================
+REFINO MINIMALISTA
+- app/layout.js: fontes Barlow carregadas por <link> no <head> (o @import do
+  ag12-theme.css era ignorado no bundle e o site caía em Arial)
+- Hero menor, sem moldura nem legenda na foto; seletor em linhas alinhadas
+- Bloco "Você joga, a gente entende" compacto
+- /produtos: filtros em uma faixa (Todas/Pronta entrega/Encomenda + selects de
+  categoria, marca, numeração, ordenação e busca)

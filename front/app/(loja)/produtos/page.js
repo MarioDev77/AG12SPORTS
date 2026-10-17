@@ -96,39 +96,43 @@ function ProdutosContent() {
           )}
         </header>
 
-        <div className="ag-filters">
-          <div className="ag-filter-row" role="group" aria-label="Disponibilidade">
-            <button type="button" className={`ag-chip${!tipo ? ' is-active' : ''}`} aria-pressed={!tipo} onClick={() => setParams({ tipo: '' })}>
-              Todas
-            </button>
+        <div className="ag-bar">
+          <div className="ag-seg" role="group" aria-label="Disponibilidade">
+            <button type="button" aria-pressed={!tipo} onClick={() => setParams({ tipo: '' })}>Todas</button>
             {FULFILLMENT.map((f) => (
-              <button key={f.value} type="button" className={`ag-chip ag-chip-key${tipo === f.value ? ' is-active' : ''}`} aria-pressed={tipo === f.value} onClick={() => setParams({ tipo: f.value })}>
+              <button key={f.value} type="button" aria-pressed={tipo === f.value} onClick={() => setParams({ tipo: f.value })}>
                 {f.label}
               </button>
             ))}
           </div>
 
-          <div className="ag-filter-row" role="group" aria-label="Categoria">
-            {CATEGORIES.map((c) => (
-              <button key={c.slug} type="button" className={`ag-chip${category === c.slug ? ' is-active' : ''}`} aria-pressed={category === c.slug} onClick={() => setParams({ cat: c.slug, q: '' })}>
-                {c.label}
-              </button>
-            ))}
-          </div>
+          <label className="ag-bar-field">
+            <span>Categoria</span>
+            <select className="ag-select" value={category} onChange={(e) => setParams({ cat: e.target.value, q: '' })}>
+              {CATEGORIES.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
+            </select>
+          </label>
+          <label className="ag-bar-field">
+            <span>Marca</span>
+            <select className="ag-select" value={brands.find((b) => b.toLowerCase() === brand.toLowerCase()) || brand} onChange={(e) => setParams({ brand: e.target.value })}>
+              <option value="">Todas</option>
+              {brands.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </label>
+          <label className="ag-bar-field">
+            <span>Numeração</span>
+            <select className="ag-select" value={size} onChange={(e) => setParams({ size: e.target.value })}>
+              <option value="">Todas</option>
+              {SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="ag-bar-field">
+            <span>Ordenar</span>
+            <select className="ag-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </label>
 
-          <div className="ag-filter-row" role="group" aria-label="Marca">
-            <button type="button" className={`ag-chip${!brand ? ' is-active' : ''}`} aria-pressed={!brand} onClick={() => setParams({ brand: '' })}>
-              Todas as marcas
-            </button>
-            {brands.map((b) => (
-              <button key={b} type="button" className={`ag-chip${brand.toLowerCase() === b.toLowerCase() ? ' is-active' : ''}`} aria-pressed={brand.toLowerCase() === b.toLowerCase()} onClick={() => setParams({ brand: b })}>
-                {b}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="ag-catalog-tools">
           <form className="ag-tool-search" role="search" onSubmit={handleSearchSubmit}>
             <iconify-icon className="iconify ag-search-icon" icon="mdi:magnify" aria-hidden="true" />
             <input
@@ -141,22 +145,10 @@ function ProdutosContent() {
               onChange={(e) => setInputVal(e.target.value)}
             />
           </form>
-          <label className="ag-tool">
-            <span>Numeração</span>
-            <select className="ag-select" value={size} onChange={(e) => setParams({ size: e.target.value })}>
-              <option value="">Todas</option>
-              {SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <label className="ag-tool">
-            <span>Ordenar</span>
-            <select className="ag-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-              {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </label>
+
           {hasFilters && (
             <button type="button" className="ag-link ag-clear" onClick={() => { setInputVal(''); router.replace(pathname, { scroll: false }); }}>
-              Limpar filtros
+              Limpar
             </button>
           )}
         </div>

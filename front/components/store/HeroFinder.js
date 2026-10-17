@@ -34,55 +34,39 @@ export default function HeroFinder() {
           </p>
 
           <form className="ag-finder" onSubmit={handleSubmit} aria-label="Encontrar chuteira">
-            <fieldset className="ag-field">
-              <legend>Como você quer comprar</legend>
+            <div className="ag-field" role="radiogroup" aria-labelledby={`${uid}-l1`}>
+              <span id={`${uid}-l1`} className="ag-field-label">Comprar</span>
               <div className="ag-opts">
                 {FULFILLMENT.map((f) => (
                   <label key={f.value} className="ag-opt">
-                    <input
-                      type="radio"
-                      name={`${uid}-tipo`}
-                      value={f.value}
-                      checked={tipo === f.value}
-                      onChange={() => setTipo(f.value)}
-                    />
+                    <input type="radio" name={`${uid}-tipo`} value={f.value} checked={tipo === f.value} onChange={() => setTipo(f.value)} />
                     <span>{f.label}</span>
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </div>
 
-            <fieldset className="ag-field">
-              <legend>Onde você joga</legend>
+            <div className="ag-field" role="radiogroup" aria-labelledby={`${uid}-l2`}>
+              <span id={`${uid}-l2`} className="ag-field-label">Piso</span>
               <div className="ag-opts">
                 {FLOORS.map((f) => (
                   <label key={f.slug} className="ag-opt">
-                    <input
-                      type="radio"
-                      name={`${uid}-piso`}
-                      value={f.slug}
-                      checked={piso === f.slug}
-                      onChange={() => setPiso(f.slug)}
-                    />
+                    <input type="radio" name={`${uid}-piso`} value={f.slug} checked={piso === f.slug} onChange={() => setPiso(f.slug)} />
                     <span>{f.label}</span>
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </div>
 
-            <div className="ag-field ag-field-row">
-              <label htmlFor={`${uid}-size`} className="ag-field-label">Numeração</label>
-              <select
-                id={`${uid}-size`}
-                className="ag-select"
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-              >
-                <option value="">Qualquer número</option>
+            <div className="ag-field">
+              <label htmlFor={`${uid}-size`} className="ag-field-label">Número</label>
+              <select id={`${uid}-size`} className="ag-select" value={size} onChange={(e) => setSize(e.target.value)}>
+                <option value="">Qualquer</option>
                 {SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
-              <button type="submit" className="ag-btn ag-btn-gold">Ver chuteiras</button>
             </div>
+
+            <button type="submit" className="ag-btn ag-btn-gold ag-finder-cta">Ver chuteiras</button>
           </form>
 
           <p className="ag-hero-help">
@@ -102,7 +86,6 @@ export default function HeroFinder() {
             priority
             sizes="(max-width: 900px) 100vw, 460px"
           />
-          <figcaption>Parede de chuteiras da loja</figcaption>
         </figure>
       </div>
     </section>
