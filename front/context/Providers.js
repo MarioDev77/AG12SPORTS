@@ -4,6 +4,8 @@ import { AuthProvider } from '@/context/AuthContext';
 import { WishProvider } from '@/context/WishContext';
 import { CartProvider } from '@/context/CartContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { ConsentProvider } from '@/context/ConsentContext';
+import CookieBanner from '@/components/CookieBanner';
 
 /**
  * Providers — agrupa todo o estado global client-side em um só lugar.
@@ -16,12 +18,15 @@ import { ToastProvider } from '@/context/ToastContext';
  */
 export default function Providers({ children }) {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <WishProvider>
-          <CartProvider>{children}</CartProvider>
-        </WishProvider>
-      </AuthProvider>
-    </ToastProvider>
+    <ConsentProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <WishProvider>
+            <CartProvider>{children}</CartProvider>
+          </WishProvider>
+        </AuthProvider>
+      </ToastProvider>
+      <CookieBanner />
+    </ConsentProvider>
   );
 }

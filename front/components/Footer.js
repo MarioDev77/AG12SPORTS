@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import CookiePrefsButton from '@/components/CookiePrefsButton';
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, WPP_NUMBER, wppLink } from '@/lib/store';
 
 const SHOP_LINKS = [
@@ -62,6 +63,10 @@ export default function Footer() {
 
       <div className="ag-wrap ag-footer-bottom">
         <p>© 2026 AG12 Sports. Todos os direitos reservados.</p>
+        <p className="ag-footer-legal">
+          <Link href="/privacidade">Política de Privacidade</Link>
+          <CookiePrefsButton className="ag-footer-ckbtn" />
+        </p>
       </div>
     </footer>
   );

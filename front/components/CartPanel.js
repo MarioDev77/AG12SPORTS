@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { apiRequest, productImageUrl } from '@/lib/api';
 import { brl, maskCep, onlyDigits } from '@/lib/format';
-
+g
 // Mesmos dados de contato do app.js original — centralizar aqui evita
 // duplicar a constante em vários componentes.
 const WPP_NUMBER = '557598756510';
