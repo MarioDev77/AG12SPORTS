@@ -769,3 +769,35 @@ nav[aria-label="Breadcrumb"] button { color: var(--ink) !important; text-decorat
 .ag-legal-table th { background: var(--surface); }
 .ag-legal-link { background: none; border: 0; padding: 0; font: inherit; color: var(--gold-dk); text-decoration: underline; cursor: pointer; }
 @media (max-width: 640px) { .ag-ck-banner { left: 8px; right: 8px; bottom: 8px; } .ag-ck-banner .ag-ck-actions, .ag-ck-banner .ag-ck-btn { width: 100%; } }
+
+/* ─── Mobile: pelo menos 2 produtos visíveis por vez ─────────────────────── */
+@media (max-width: 640px) {
+  /* Carrossel de ofertas da home: 2 cards cabem na tela (com "espiada" do próximo) */
+  #heroOffers .hero-offers-track { gap: 10px; padding: 6px 2px 14px; scroll-snap-type: x mandatory; }
+  #heroOffers .hero-offers-card {
+    width: calc((100vw - 28px - 10px) / 2.15);
+    min-width: 140px;
+    scroll-snap-align: start;
+  }
+
+  /* Grid de produtos: 2 colunas sempre, textos proporcionais ao card */
+  #productsGrid, .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .product-card .body { padding: 10px 10px 12px; }
+  .product-card .brand { font-size: 11px; }
+  .product-card .name { font-size: 13px; min-height: 2.6em; margin-bottom: 8px; }
+  .product-card .price-row { gap: 6px; }
+  .product-card .price-now { font-size: 19px; }
+  .product-card .price-old { font-size: 11px; }
+  .product-badges .product-badge,
+  .product-badge { font-size: 10px; padding: 3px 6px; }
+  .wish-btn { width: 30px; height: 30px; font-size: 15px; }
+  .card-size-chip { font-size: 10.5px !important; padding: 1px 6px !important; }
+  .card-sizes-more { font-size: 10.5px !important; }
+  .card-sizes { gap: 4px; margin: 0 0 8px; }
+}
+
+/* Celulares bem estreitos */
+@media (max-width: 360px) {
+  #productsGrid, .products-grid { gap: 8px; }
+  .product-card .price-now { font-size: 17px; }
+}
