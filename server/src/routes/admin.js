@@ -1139,6 +1139,66 @@ router.delete('/origins/:id', async (req, res, next) => {
   }
 });
 
+// ─── Marcas (cadastro simples: admin cria, seleciona no produto e remove as sem uso) ──
+const BrandSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+router.get('/brands', async (req, res, next) => {
+  try {
+    // Traz para o cadastro marcas que já existem em produtos mas ainda não estão na tabela.
+    await pool.query(
+      `INSERT IGNORE INTO brands (name)
+       SELECT DISTINCT TRIM(brand) FROM products WHERE TRIM(brand) <> ''`
+    );
+    const [rows] = await pool.query(
+      `SELECT b.id, b.name,
+              (SELECT COUNT(*) FROM products p WHERE p.brand = b.name) AS product_count
+         FROM brands b
+        ORDER BY b.name ASC`
+    );
+    return res.json({
+      brands: rows.map((r) => ({ id: r.id, name: r.name, productCount: Number(r.product_count) })),
+    });
+  } catch (err) { return next(err); }
+});
+
+router.post('/brands', async (req, res, next) => {
+  try {
+    const parsed = BrandSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Informe o nome da marca (até 80 caracteres).' });
+    const name = parsed.data.name.replace(/\s+/g, ' ');
+
+    const [existing] = await pool.execute('SELECT id, name FROM brands WHERE name = ? LIMIT 1', [name]);
+    if (existing.length) {
+      return res.status(409).json({ error: 'Essa marca já existe.', brand: { id: existing[0].id, name: existing[0].name } });
+    }
+    const [result] = await pool.execute('INSERT INTO brands (name) VALUES (?)', [name]);
+    return res.status(201).json({ brand: { id: result.insertId, name, productCount: 0 } });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Essa marca já existe.' });
+    return next(err);
+  }
+});
+
+router.delete('/brands/:id', async (req, res, next) => {
+  try {
+    const id = parsePositiveInt(req.params.id, 'brand id');
+    const [rows] = await pool.execute('SELECT id, name FROM brands WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+
+    const [[usage]] = await pool.execute('SELECT COUNT(*) AS c FROM products WHERE brand = ?', [rows[0].name]);
+    if (Number(usage.c) > 0) {
+      return res.status(409).json({ error: `Não dá para remover: ${usage.c} produto(s) usam a marca ${rows[0].name}.` });
+    }
+    await pool.execute('DELETE FROM brands WHERE id = ?', [id]);
+    return res.json({ deleted: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
 router.get('/users', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);

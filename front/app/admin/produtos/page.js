@@ -63,6 +63,12 @@ export default function AdminProdutosPage() {
   const [variantsLoading, setVariantsLoading] = useState(false);
   const [variantsBusy,  setVariantsBusy]  = useState(false);
   const [variantsLoaded, setVariantsLoaded] = useState(false);
+  // ── Marcas (cadastro: criar e selecionar) ──────────────────────────────
+  const [brandList, setBrandList] = useState([]);       // [{ id, name, productCount }]
+  const [newBrand, setNewBrand] = useState('');
+  const [showNewBrand, setShowNewBrand] = useState(false);
+  const [showManageBrands, setShowManageBrands] = useState(false);
+  const [brandBusy, setBrandBusy] = useState(false);
   const [customSize, setCustomSize] = useState('');
 
   // Produto marcado para exclusão — abre o modal de confirmação.
@@ -83,6 +89,65 @@ export default function AdminProdutosPage() {
       .then((data) => setFilterMeta({ brands: data.brands || [], sizes: data.sizes || [] }))
       .catch(() => {}); // filtros de marca/tamanho só não aparecem; painel continua funcionando
   }, [isAuthenticated]);
+
+  async function loadBrands() {
+    try {
+      const data = await adminRequest('/brands');
+      setBrandList(Array.isArray(data?.brands) ? data.brands : []);
+    } catch {
+      // sem a lista o campo continua funcionando com as marcas já carregadas
+    }
+  }
+
+  useEffect(() => {
+    if (isAuthenticated) loadBrands();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  async function createBrand() {
+    const name = newBrand.trim().replace(/\s+/g, ' ');
+    if (!name) {
+      showToast('Digite o nome da marca.', 'error');
+      return;
+    }
+    setBrandBusy(true);
+    try {
+      const data = await adminRequest('/brands', { method: 'POST', body: { name } });
+      const created = data?.brand;
+      await loadBrands();
+      if (created?.name) handleFieldChange('brand', created.name);
+      setNewBrand('');
+      setShowNewBrand(false);
+      showToast(`Marca ${name} criada e selecionada.`, 'success');
+    } catch (err) {
+      // Marca repetida: só seleciona a que já existe.
+      const dup = brandList.find((b) => b.name.toLowerCase() === name.toLowerCase());
+      if (dup) {
+        handleFieldChange('brand', dup.name);
+        setNewBrand('');
+        setShowNewBrand(false);
+        showToast(`A marca ${dup.name} já existe. Selecionei ela para você.`, 'success');
+      } else {
+        showToast(err.message || 'Erro ao criar a marca.', 'error');
+      }
+    } finally {
+      setBrandBusy(false);
+    }
+  }
+
+  async function removeBrand(brand) {
+    setBrandBusy(true);
+    try {
+      await adminRequest(`/brands/${brand.id}`, { method: 'DELETE' });
+      if (formData.brand === brand.name) handleFieldChange('brand', '');
+      await loadBrands();
+      showToast(`Marca ${brand.name} removida.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Erro ao remover a marca.', 'error');
+    } finally {
+      setBrandBusy(false);
+    }
+  }
 
   function buildFilterQuery() {
     const qs = new URLSearchParams();
@@ -572,7 +637,76 @@ export default function AdminProdutosPage() {
             <form onSubmit={handleSubmit} style={{ padding: 28 }}>
               <div className="checkout-form-grid">
                 <input type="text" placeholder="Nome do produto" className="field-input" required value={formData.name} onChange={(e) => handleFieldChange('name', e.target.value)} />
-                <input type="text" placeholder="Marca (opcional)" className="field-input" value={formData.brand} onChange={(e) => handleFieldChange('brand', e.target.value)} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      className="sort-select field-input"
+                      aria-label="Marca"
+                      style={{ flex: 1 }}
+                      value={formData.brand}
+                      onChange={(e) => handleFieldChange('brand', e.target.value)}
+                    >
+                      <option value="">Marca (opcional)</option>
+                      {/* Marca antiga do produto que não está no cadastro continua aparecendo. */}
+                      {formData.brand && !brandList.some((b) => b.name === formData.brand) && (
+                        <option value={formData.brand}>{formData.brand}</option>
+                      )}
+                      {brandList.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                    <button type="button" className="btn-secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => setShowNewBrand((v) => !v)}>
+                      + Nova marca
+                    </button>
+                  </div>
+
+                  {showNewBrand && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="Nome da nova marca (ex: Mizuno)"
+                        className="field-input"
+                        style={{ flex: 1 }}
+                        maxLength={80}
+                        value={newBrand}
+                        autoFocus
+                        onChange={(e) => setNewBrand(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createBrand(); } }}
+                      />
+                      <button type="button" className="btn-primary" style={{ fontSize: 13 }} onClick={createBrand} disabled={brandBusy}>
+                        {brandBusy ? 'Criando…' : 'Criar'}
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowManageBrands((v) => !v)}
+                    style={{ alignSelf: 'flex-start', background: 'none', border: 0, padding: 0, fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {showManageBrands ? 'Fechar marcas' : 'Gerenciar marcas'}
+                  </button>
+
+                  {showManageBrands && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {brandList.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Nenhuma marca cadastrada.</span>}
+                      {brandList.map((b) => (
+                        <span key={b.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 12 }}>
+                          {b.name}
+                          <span style={{ color: 'var(--muted)' }}>({b.productCount})</span>
+                          <button
+                            type="button"
+                            aria-label={`Remover marca ${b.name}`}
+                            title={b.productCount > 0 ? 'Só dá para remover marcas sem produtos' : 'Remover marca'}
+                            disabled={brandBusy || b.productCount > 0}
+                            onClick={() => removeBrand(b)}
+                            style={{ border: 0, background: 'none', cursor: b.productCount > 0 ? 'not-allowed' : 'pointer', opacity: b.productCount > 0 ? 0.3 : 1, fontSize: 14, lineHeight: 1 }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <select className="sort-select field-input" value={formData.category} onChange={(e) => handleFieldChange('category', e.target.value)}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
