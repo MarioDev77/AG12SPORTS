@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { apiRequest, productPrimaryImage } from '@/lib/api';
 
 /**
  * CartContext — réplica fiel de readCart/writeCart/addToCart/etc. do front
@@ -52,6 +53,30 @@ export function CartProvider({ children }) {
     setHydrated(true);
   }, []);
 
+  // Carrinhos salvos antes da correção ficaram sem foto: completa uma vez,
+  // buscando a foto principal de cada produto que está sem imagem.
+  useEffect(() => {
+    if (!hydrated) return;
+    const missing = [...new Set(readCartFromStorage().filter((it) => !it.image).map((it) => it.productId))];
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      missing.map((id) =>
+        apiRequest(`/products/${id}`)
+          .then((data) => [id, productPrimaryImage((data && data.product) || data)])
+          .catch(() => [id, ''])
+      )
+    ).then((pairs) => {
+      if (cancelled) return;
+      const found = new Map(pairs.filter(([, img]) => img));
+      if (found.size === 0) return;
+      const next = readCartFromStorage().map((it) => (!it.image && found.has(it.productId) ? { ...it, image: found.get(it.productId) } : it));
+      setItems(next);
+      writeCartToStorage(next);
+    });
+    return () => { cancelled = true; };
+  }, [hydrated]);
+
   const persist = useCallback((next) => {
     setItems(next);
     writeCartToStorage(next);
@@ -79,7 +104,7 @@ export function CartProvider({ children }) {
             qty: Math.min(MAX_QTY_PER_LINE, qty),
             name: product.name,
             brand: product.brand,
-            image: product.image,
+            image: productPrimaryImage(product),
             unitPrice: product.price,
           },
         ];

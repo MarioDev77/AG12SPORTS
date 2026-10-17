@@ -25,6 +25,20 @@ export function productImageUrl(image) {
   return image.startsWith('/') ? `${apiOrigin}${image}` : `${apiOrigin}/${image}`;
 }
 
+/**
+ * Foto principal do produto (caminho/URL cru, sem host). O campo legado
+ * `image` costuma vir vazio quando as fotos estão em `images` (product_images),
+ * então a principal vem de lá. Para exibir, passe por productImageUrl().
+ */
+export function productPrimaryImage(product) {
+  if (!product) return '';
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    const primary = product.images.find((img) => img && img.isPrimary) || product.images[0];
+    if (primary && primary.url) return primary.url;
+  }
+  return product.image || '';
+}
+
 export class ApiError extends Error {
   constructor(message, status) {
     super(message);

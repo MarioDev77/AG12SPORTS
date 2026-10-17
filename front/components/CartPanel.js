@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, productImageUrl } from '@/lib/api';
 import { brl, maskCep, onlyDigits } from '@/lib/format';
 
 // Mesmos dados de contato do app.js original — centralizar aqui evita
@@ -84,7 +84,7 @@ export default function CartPanel({ open, onClose }) {
           {items.map((it) => (
             <div className="cart-line-item" key={`${it.productId}:${it.size || ''}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={it.image || ''} alt={it.name || ''} />
+              <img src={productImageUrl(it.image)} alt={it.name || ''} />
               <div className="cart-line-info">
                 <div className="name">{it.name || ''}</div>
                 <div className="meta">Tam. {it.size || '—'} · {it.brand || ''}</div>

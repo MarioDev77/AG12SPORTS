@@ -3,11 +3,24 @@
 const express = require('express');
 const { z } = require('zod');
 
-const { createOrder, getOrderByIdAndUser, getOrdersByUser } = require('../services/orders.service');
+const rateLimit = require('express-rate-limit');
+
+const { createOrder, getOrderByIdAndUser, getOrdersByUser, getGuestUserId } = require('../services/orders.service');
 const { authJwt } = require('../middlewares/authJwt');
+const { optionalAuth } = require('../middlewares/optionalAuth');
 const { parsePositiveInt } = require('../utils/security');
 
 const router = express.Router();
+
+// Criar pedido não exige mais conta, então a rota fica protegida por um limite
+// bem mais apertado que o global (o estoque é reservado já na criação).
+const createOrderLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  limit: 8,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitos pedidos em pouco tempo. Tente novamente em alguns minutos ou fale com a gente pelo WhatsApp.' },
+});
 
 // ─── Schema de criação de pedido ──────────────────────────────────────────────
 // NOTA DE SEGURANÇA: unitPrice, frete e totais enviados pelo cliente são
@@ -51,15 +64,19 @@ const OrderSchema = z.object({
     .max(20),
 });
 
-// ─── POST /api/orders — criar pedido (requer auth) ────────────────────────────
-router.post('/', authJwt, async (req, res, next) => {
+// ─── POST /api/orders — criar pedido (login opcional) ─────────────────────────
+// Logado: o pedido fica na conta do cliente. Visitante: vai para a conta
+// reservada "Pedidos sem cadastro" (ver getGuestUserId).
+router.post('/', createOrderLimiter, optionalAuth, async (req, res, next) => {
   try {
     const parsed = OrderSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
     }
 
-    const result = await createOrder(parsed.data, req.user.sub);
+    const sub = req.user && /^\d+$/.test(String(req.user.sub)) ? req.user.sub : null;
+    const userId = sub || (await getGuestUserId());
+    const result = await createOrder(parsed.data, userId);
     return res.status(201).json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

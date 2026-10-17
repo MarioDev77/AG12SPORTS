@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { productPrimaryImage } from '@/lib/api';
 
 /**
  * WishContext — réplica fiel de readWish/writeWish/toggleWish/snapshots do
@@ -91,7 +92,7 @@ export function WishProvider({ children }) {
             [productId]: {
               name: productSnapshot.name,
               brand: productSnapshot.brand,
-              image: productSnapshot.image,
+              image: productPrimaryImage(productSnapshot),
               price: productSnapshot.price,
             },
           };

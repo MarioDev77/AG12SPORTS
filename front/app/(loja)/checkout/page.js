@@ -37,16 +37,10 @@ const EMPTY_FORM = {
 export default function CheckoutPage() {
   const router = useRouter();
   const showToast = useToast();
-  const { isAuthenticated, user, token, login, register } = useAuth();
+  // Login é opcional: quem já está logado mantém o pedido na própria conta e
+  // os endereços salvos; quem não está compra como visitante.
+  const { isAuthenticated, user, token } = useAuth();
   const { items, subtotal, hydrated, clearCart } = useCart();
-
-  // ——— Mini login/register (checkout exige conta, pedidos ficam vinculados ao usuário) ———
-  const [authMode, setAuthMode] = useState('login');
-  const [authUsername, setAuthUsername] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authReg, setAuthReg] = useState({ name: '', username: '', email: '', phone: '', password: '' });
-  const [authErr, setAuthErr] = useState('');
-  const [authBusy, setAuthBusy] = useState(false);
 
   // ——— Wizard ———
   const [step, setStep] = useState(1);
@@ -199,43 +193,6 @@ export default function CheckoutPage() {
     showToast('Endereço preenchido.', 'success');
   }
 
-  async function handleLogin(e) {
-    e.preventDefault();
-    setAuthErr('');
-    if (!authUsername || !authPassword) { setAuthErr('Preencha usuário e senha.'); return; }
-    setAuthBusy(true);
-    try {
-      await login(authUsername, authPassword);
-    } catch (err) {
-      setAuthErr(err.message || 'Falha ao autenticar.');
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
-  async function handleRegister(e) {
-    e.preventDefault();
-    setAuthErr('');
-    const { name, username, email, phone, password } = authReg;
-    if (!name || !username || !email || !password) { setAuthErr('Preencha nome, usuário, e-mail e senha.'); return; }
-    if (username.length < 3) { setAuthErr('O nome de usuário precisa ter pelo menos 3 caracteres.'); return; }
-    if (!/^[\w@.-]+$/.test(username)) { setAuthErr('Nome de usuário só pode ter letras, números, ponto, @, - ou _.'); return; }
-    if (password.length < 8) { setAuthErr('A senha precisa ter pelo menos 8 caracteres.'); return; }
-    setAuthBusy(true);
-    try {
-      const payload = { name, username, email, password };
-      if (phone) payload.phone = phone;
-      await register(payload);
-    } catch (err) {
-      const msg = err.message === 'Invalid payload'
-        ? 'Verifique os dados: usuário só com letras/números (mín. 3), e-mail válido e senha com 8+ caracteres.'
-        : (err.message || 'Falha ao criar conta.');
-      setAuthErr(msg);
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
   function validateStep1() {
     const { name, cpf, email, phone, cep, street, number, bairro, city, state } = form;
     if (!name || !cpf || !email || !phone) return 'Preencha seus dados de contato.';
@@ -318,7 +275,7 @@ export default function CheckoutPage() {
       setOrderResult(result);
       clearCart();
 
-      if (saveAddress) {
+      if (isAuthenticated && saveAddress) {
         apiRequest('/addresses', {
           method: 'POST',
           token,
@@ -386,51 +343,6 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!isAuthenticated && !orderResult) {
-    return (
-      <div style={{ paddingTop: 0, display: 'flex', justifyContent: 'center', padding: '40px 24px 60px' }}>
-        <div className="modal-content" style={{ width: '100%', maxWidth: 440 }}>
-          <div className="checkout-body">
-            <p className="checkout-section-title">Entre para continuar</p>
-            <p className="checkout-section-sub">Seu pedido fica salvo na sua conta — você acompanha o status em &quot;Minha conta&quot;.</p>
-
-            <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--bg)', borderRadius: 10, padding: 4 }}>
-              <button type="button" onClick={() => setAuthMode('login')} className={authMode === 'login' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}>
-                Entrar
-              </button>
-              <button type="button" onClick={() => setAuthMode('register')} className={authMode === 'register' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', fontSize: 18 }}>
-                Criar conta
-              </button>
-            </div>
-
-            {authMode === 'login' ? (
-              <div className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <input type="text" placeholder="E-mail ou usuário" className="field-input" value={authUsername} onChange={(e) => setAuthUsername(e.target.value)} />
-                <input type="password" placeholder="Senha" className="field-input" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin(e)} />
-                {authErr && <div className="error-box">{authErr}</div>}
-                <button onClick={handleLogin} className="btn-primary" style={{ justifyContent: 'center' }} disabled={authBusy}>
-                  {authBusy ? 'Entrando…' : 'Entrar'}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleRegister} className="checkout-form-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <input type="text" placeholder="Nome completo" className="field-input" value={authReg.name} onChange={(e) => setAuthReg((r) => ({ ...r, name: e.target.value }))} />
-                <input type="text" placeholder="Nome de usuário (mín. 3 caracteres)" className="field-input" value={authReg.username} onChange={(e) => setAuthReg((r) => ({ ...r, username: e.target.value }))} />
-                <input type="email" placeholder="E-mail" className="field-input" value={authReg.email} onChange={(e) => setAuthReg((r) => ({ ...r, email: e.target.value }))} />
-                <input type="tel" placeholder="Telefone (opcional)" className="field-input" value={authReg.phone} onChange={(e) => setAuthReg((r) => ({ ...r, phone: e.target.value }))} />
-                <input type="password" placeholder="Senha (mín. 8 caracteres)" className="field-input" value={authReg.password} onChange={(e) => setAuthReg((r) => ({ ...r, password: e.target.value }))} />
-                {authErr && <div className="error-box">{authErr}</div>}
-                <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }} disabled={authBusy}>
-                  {authBusy ? 'Criando conta…' : 'Criar conta'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ——— Sucesso ———
   if (orderResult) {
     return (
@@ -447,8 +359,8 @@ export default function CheckoutPage() {
                 )}.
                 <br />
                 <strong>Falta só um passo:</strong> envie o pedido pelo WhatsApp para finalizar a compra e
-                combinar o pagamento. Abrindo o WhatsApp em instantes… Assim que confirmarmos, seu pedido
-                aparece em &quot;Meus pedidos&quot;.
+                combinar o pagamento. Abrindo o WhatsApp em instantes…
+                {isAuthenticated && <> Assim que confirmarmos, seu pedido aparece em &quot;Meus pedidos&quot;.</>}
               </p>
             </div>
 

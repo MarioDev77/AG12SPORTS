@@ -9,6 +9,41 @@ function normalizeCpf(cpfRaw) {
   return cpfRaw.replace(/[.\-\s]/g, '');
 }
 
+// ── Pedidos sem cadastro ────────────────────────────────────────────────────
+// orders.user_id é NOT NULL (FK para users). Para aceitar compra sem conta
+// SEM alterar o schema, os pedidos de visitantes ficam vinculados a uma única
+// conta reservada: inativa (is_active = 0, então nunca autentica nem entra
+// no login) e com hash de senha inválido. Os dados do cliente (nome, CPF em
+// hash, e-mail, telefone, endereço) continuam gravados no próprio pedido.
+const GUEST_EMAIL = 'pedidos-sem-cadastro@ag12sports.invalid';
+let guestUserIdCache = null;
+
+async function getGuestUserId() {
+  if (guestUserIdCache) return guestUserIdCache;
+
+  const select = () => pool.query(
+    "SELECT id FROM users WHERE email = ? AND is_active = 0 AND password_hash LIKE '!%' LIMIT 1",
+    [GUEST_EMAIL]
+  );
+
+  let [rows] = await select();
+  if (!rows[0]) {
+    await pool.query(
+      `INSERT IGNORE INTO users (name, username, email, password_hash, role, is_active)
+       VALUES ('Pedidos sem cadastro', 'pedidos-sem-cadastro', ?, ?, 'user', 0)`,
+      [GUEST_EMAIL, `!${crypto.randomBytes(32).toString('hex')}`]
+    );
+    [rows] = await select();
+  }
+  if (!rows[0]) {
+    const err = new Error('Não foi possível registrar o pedido agora. Tente novamente.');
+    err.status = 500;
+    throw err;
+  }
+  guestUserIdCache = rows[0].id;
+  return guestUserIdCache;
+}
+
 /**
  * Cria pedido com recálculo de preço/estoque/frete no servidor.
  *
@@ -385,6 +420,7 @@ async function updateOrderTracking(orderId, { shipmentScope, trackingCarrier, tr
 }
 
 module.exports = {
+  getGuestUserId,
   createOrder,
   getOrderByIdAndUser,
   getOrdersByUser,
