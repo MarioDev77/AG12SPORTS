@@ -21,7 +21,7 @@ const PRODUCT_COLS = `
   p.id, p.name, p.brand, c.slug AS category, p.price, p.old_price,
   p.image_url AS image, p.description AS \`desc\`, p.sizes_json AS sizes,
   p.sku, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.sold_qty,
-  p.available_for_order
+  p.available_for_order, p.available_on_request
 `;
 
 const FROM_JOIN = `
@@ -78,12 +78,13 @@ async function listProducts({
     params.push(cat);
   }
 
-  // Disponibilidade: "pronta" = produto com estoque liberado para compra no
-  // site (available_for_order = 1); "encomenda" = o restante, sob consulta.
+  // Disponibilidade (independentes; um produto pode ter as duas):
+  // "pronta" = estoque liberado para compra no site (available_for_order = 1);
+  // "encomenda" = "Disponível para pedidos", sob consulta (available_on_request = 1).
   if (fulfillment === 'pronta') {
     conditions.push('p.available_for_order = 1');
   } else if (fulfillment === 'encomenda') {
-    conditions.push('p.available_for_order = 0');
+    conditions.push('p.available_on_request = 1');
   }
 
   if (useSearch) {
@@ -239,6 +240,7 @@ function mapProduct(r) {
         },
     soldQty: Number(r.sold_qty || 0),
     availableForOrder: !!Number(r.available_for_order || 0),
+    availableOnRequest: !!Number(r.available_on_request || 0),
   };
 }
 

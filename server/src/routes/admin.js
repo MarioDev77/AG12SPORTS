@@ -60,7 +60,8 @@ const ProductSchema = z.object({
   is_active: z.boolean().optional().default(true),
   is_featured: z.boolean().optional().default(false),
   // ── Etapa 18: disponibilidade para pedidos (chuteiras/variantes) ──
-  available_for_order: z.boolean().optional().default(false),
+  available_for_order: z.boolean().optional().default(false),   // Pronta entrega
+  available_on_request: z.boolean().optional().default(false),  // Disponível para pedidos (encomenda)
   // ── Novos campos (etapa 6) — todos opcionais, não quebram payloads antigos ──
   sku: z.string().min(1).max(60).nullable().optional(),
   weight_grams: z.number().int().min(0).nullable().optional(),
@@ -94,6 +95,7 @@ function parseMultipartBody(body) {
   if (out.is_active !== undefined) out.is_active = out.is_active === 'true' || out.is_active === '1';
   if (out.is_featured !== undefined) out.is_featured = out.is_featured === 'true' || out.is_featured === '1';
   if (out.available_for_order !== undefined) out.available_for_order = out.available_for_order === 'true' || out.available_for_order === '1';
+  if (out.available_on_request !== undefined) out.available_on_request = out.available_on_request === 'true' || out.available_on_request === '1';
   if (out.sizes_json && typeof out.sizes_json === 'string') {
     try { out.sizes_json = JSON.parse(out.sizes_json); } catch { /* deixa falhar no zod */ }
   }
@@ -246,7 +248,7 @@ router.get('/products', async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT p.id, p.name, p.brand, c.slug AS category, p.price, p.old_price,
               p.image_url, p.description AS \`desc\`, p.sizes_json, p.stock_qty,
-              p.is_active, p.is_featured, p.available_for_order, ${IMAGES_SUBQUERY}
+              p.is_active, p.is_featured, p.available_for_order, p.available_on_request, ${IMAGES_SUBQUERY}
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id
        ${where}
@@ -324,12 +326,12 @@ async function insertProduct(d, categoryId) {
   const [result] = await pool.execute(
     `INSERT INTO products
       (category_id, name, brand, price, old_price, image_url, description, sizes_json,
-       stock_qty, is_active, is_featured, available_for_order, sku, weight_grams, length_cm, width_cm, height_cm)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       stock_qty, is_active, is_featured, available_for_order, available_on_request, sku, weight_grams, length_cm, width_cm, height_cm)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       categoryId, d.name, d.brand, d.price, d.old_price ?? null, d.image_url,
       d.description, JSON.stringify(d.sizes_json), d.stock_qty, d.is_active ? 1 : 0, d.is_featured ? 1 : 0,
-      d.available_for_order ? 1 : 0,
+      d.available_for_order ? 1 : 0, d.available_on_request ? 1 : 0,
       d.sku ?? null, d.weight_grams ?? null, d.length_cm ?? null, d.width_cm ?? null, d.height_cm ?? null,
     ]
   );
@@ -430,6 +432,7 @@ router.patch('/products/:id', (req, res, next) => {
       if (d.is_active !== undefined)   { fields.push('is_active = ?');   values.push(d.is_active ? 1 : 0); }
       if (d.is_featured !== undefined) { fields.push('is_featured = ?'); values.push(d.is_featured ? 1 : 0); }
       if (d.available_for_order !== undefined) { fields.push('available_for_order = ?'); values.push(d.available_for_order ? 1 : 0); }
+      if (d.available_on_request !== undefined) { fields.push('available_on_request = ?'); values.push(d.available_on_request ? 1 : 0); }
       if (d.sku !== undefined)          { fields.push('sku = ?');          values.push(d.sku); }
       if (d.weight_grams !== undefined) { fields.push('weight_grams = ?'); values.push(d.weight_grams); }
       if (d.length_cm !== undefined)    { fields.push('length_cm = ?');    values.push(d.length_cm); }
