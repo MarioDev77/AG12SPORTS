@@ -527,6 +527,38 @@ body { font-family: var(--font-body); background: var(--white); color: var(--ink
 .catalog-spotlight-arrow:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
 .catalog-spotlight-thumb.is-active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 
+/* Destaques maiores: foto grande, texto ao lado no desktop */
+.catalog-spotlight-section { padding: 8px 0 56px; }
+.catalog-spotlight-stage { min-height: clamp(520px, 74vh, 720px); padding: 40px 88px; }
+.catalog-spotlight-item { flex-direction: row; justify-content: center; align-items: center; gap: clamp(40px, 6vw, 96px); width: 100%; }
+.catalog-spotlight-figure { width: auto; height: clamp(400px, 60vh, 640px); max-width: 52%; flex: 0 1 auto; }
+.catalog-spotlight-figure img { height: 100%; width: auto; max-height: none; max-width: 100%; border-radius: 6px; filter: drop-shadow(0 18px 36px rgba(18,16,13,.22)); }
+.catalog-spotlight-info { text-align: left; flex: 0 1 380px; min-width: 0; }
+.catalog-spotlight-category { font-size: 16px; }
+.catalog-spotlight-name { margin-top: 10px; font-size: clamp(34px, 3.6vw, 52px); line-height: 1; }
+.catalog-spotlight-price-row { justify-content: flex-start; margin-top: 18px; }
+.catalog-spotlight-price-old { font-size: 18px; }
+.catalog-spotlight-price-now { font-size: clamp(38px, 3.6vw, 52px); line-height: 1; }
+.catalog-spotlight-cta { margin-top: 28px; }
+.catalog-spotlight-arrow { width: 52px; height: 52px; }
+.catalog-spotlight-arrow.left { left: 20px; }
+.catalog-spotlight-arrow.right { right: 20px; }
+.catalog-spotlight-thumb { width: 72px; height: 72px; }
+
+@media (max-width: 820px) {
+  .catalog-spotlight-stage { min-height: 0; padding: 28px 16px 24px; gap: 0; }
+  .catalog-spotlight-item { flex-direction: column; gap: 20px; }
+  .catalog-spotlight-figure { height: clamp(340px, 88vw, 520px); max-width: 100%; }
+  .catalog-spotlight-info { text-align: center; flex: none; }
+  .catalog-spotlight-price-row { justify-content: center; }
+  .catalog-spotlight-name { font-size: 30px; }
+  .catalog-spotlight-price-now { font-size: 36px; }
+  .catalog-spotlight-arrow { top: clamp(170px, 44vw, 260px); width: 44px; height: 44px; }
+  .catalog-spotlight-arrow.left { left: 8px; }
+  .catalog-spotlight-arrow.right { right: 8px; }
+  .catalog-spotlight-thumb { width: 56px; height: 56px; }
+}
+
 /* ============================================================
    ETAPAS 2 E 3 — produto, carrinho, favoritos, checkout, conta
    ============================================================ */

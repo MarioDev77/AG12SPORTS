@@ -64,6 +64,21 @@ export default function CheckoutPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
+  // Foto do que foi enviado: o carrinho é limpo logo após o pedido, mas a
+  // mensagem do WhatsApp ainda precisa dos itens, do cliente e do endereço.
+  const [orderSnapshot, setOrderSnapshot] = useState(null);
+
+  // Toda compra termina no WhatsApp: depois de registrar o pedido, abre a
+  // conversa já com o resumo. O botão da tela de sucesso continua como
+  // plano B (navegador que bloqueie ou cliente que volte).
+  useEffect(() => {
+    if (!orderResult || !orderSnapshot) return undefined;
+    const id = setTimeout(() => {
+      window.location.assign(`https://wa.me/${WPP_NUMBER}?text=${buildWhatsappMessage()}`);
+    }, 2500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderResult, orderSnapshot]);
 
   // Prefill nome/e-mail assim que autenticado.
   useEffect(() => {
@@ -294,6 +309,12 @@ export default function CheckoutPage() {
       };
 
       const result = await apiRequest('/orders', { method: 'POST', body: payload, token });
+      setOrderSnapshot({
+        items: items.map((it) => ({ name: it.name, size: it.size, qty: it.qty })),
+        customerName: form.name,
+        address: `${form.street}, ${form.number}${form.complement ? ` (${form.complement})` : ''} - ${form.bairro}, ${form.city}/${form.state.toUpperCase()} - CEP ${maskCep(form.cep)}`,
+        payment: paymentMethod,
+      });
       setOrderResult(result);
       clearCart();
 
@@ -324,16 +345,20 @@ export default function CheckoutPage() {
 
   function buildWhatsappMessage() {
     if (!orderResult) return '';
+    const snap = orderSnapshot || { items: [], payment: paymentMethod };
+    const payLabel = snap.payment === 'pix' ? 'Pix' : snap.payment === 'cartao' ? 'Cartão' : 'Boleto';
     const lines = [
-      `Olá! Acabei de finalizar o pedido #${orderResult.orderId} na AG12 Sports.`,
+      `Olá! Acabei de fazer o pedido #${orderResult.orderId} no site da AG12 Sports e quero finalizar a compra.`,
       '',
-      ...items.map((it) => `• ${it.qty}x ${it.name}${it.size ? ` (tam. ${it.size})` : ''}`),
+      ...(snap.customerName ? [`Cliente: ${snap.customerName}`] : []),
+      ...snap.items.map((it) => `• ${it.qty}x ${it.name}${it.size ? ` (tam. ${it.size})` : ''}`),
       '',
       `Subtotal: ${brl(orderResult.subtotal)}`,
       `Frete: ${brl(orderResult.shippingCost)}`,
       `Total: ${brl(orderResult.total)}`,
-      `Pagamento: ${paymentMethod === 'pix' ? 'Pix' : paymentMethod === 'cartao' ? 'Cartão' : 'Boleto'}`,
+      `Pagamento: ${payLabel}`,
       `Prazo estimado: ${orderResult.estimatedMinDays}-${orderResult.estimatedMaxDays} dias úteis`,
+      ...(snap.address ? ['', `Entrega: ${snap.address}`] : []),
     ];
     return encodeURIComponent(lines.join('\n'));
   }
@@ -421,8 +446,9 @@ export default function CheckoutPage() {
                   <> (📦 {formatDeliveryWindow(orderResult.estimatedMinDate, orderResult.estimatedMaxDate)})</>
                 )}.
                 <br />
-                Envie o comprovante de pagamento pelo WhatsApp para confirmarmos — assim que confirmado,
-                seu pedido aparece em &quot;Meus pedidos&quot;.
+                <strong>Falta só um passo:</strong> envie o pedido pelo WhatsApp para finalizar a compra e
+                combinar o pagamento. Abrindo o WhatsApp em instantes… Assim que confirmarmos, seu pedido
+                aparece em &quot;Meus pedidos&quot;.
               </p>
             </div>
 
@@ -650,7 +676,7 @@ export default function CheckoutPage() {
               <div className="checkout-nav spaced">
                 <button onClick={() => setStep(3)} className="btn-secondary" disabled={submitting}>Voltar</button>
                 <button onClick={handleSubmitOrder} className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Finalizando…' : 'Finalizar pedido'}
+                  {submitting ? 'Registrando…' : 'Finalizar pelo WhatsApp'}
                 </button>
               </div>
             </>

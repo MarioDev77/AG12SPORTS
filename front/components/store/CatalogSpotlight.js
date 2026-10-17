@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useProducts } from '@/lib/useProducts';
 import { productImageUrl } from '@/lib/api';
 import { brl } from '@/lib/format';
@@ -104,6 +105,9 @@ export default function CatalogSpotlight() {
                   {hasDiscount && <span className="catalog-spotlight-price-old">{brl(item.oldPrice)}</span>}
                   <span className="catalog-spotlight-price-now">{brl(item.price)}</span>
                 </div>
+                <Link href={`/produto/${item.id}`} className="ag-btn ag-btn-ink catalog-spotlight-cta">
+                  Ver produto <span aria-hidden="true">→</span>
+                </Link>
               </div>
             </div>
 
