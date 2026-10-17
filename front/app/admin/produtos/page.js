@@ -62,6 +62,8 @@ export default function AdminProdutosPage() {
   const [variantRows,   setVariantRows]   = useState([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
   const [variantsBusy,  setVariantsBusy]  = useState(false);
+  const [variantsLoaded, setVariantsLoaded] = useState(false);
+  const [customSize, setCustomSize] = useState('');
 
   // Produto marcado para exclusão — abre o modal de confirmação.
   // null = nenhum modal aberto.
@@ -140,6 +142,8 @@ export default function AdminProdutosPage() {
     setGalleryImages([]);
     setPendingFiles([]);
     setVariantRows([]);
+    setVariantsLoaded(true);
+    setCustomSize('');
     setFormError('');
     setShowForm(true);
   }
@@ -296,9 +300,12 @@ export default function AdminProdutosPage() {
   // ── Variantes de tamanho/estoque (etapa 18) ─────────────────────────────
   async function loadVariants(productId) {
     setVariantsLoading(true);
+    setVariantsLoaded(false);
+    setCustomSize('');
     try {
       const rows = await adminRequest(`/products/${productId}/variants`);
       setVariantRows(rows.map((v) => ({ ...v, active: !!v.active })));
+      setVariantsLoaded(true);
     } catch (err) {
       showToast(err.message || 'Erro ao carregar tamanhos. Tente novamente.', 'error');
       setVariantRows([]);
@@ -307,68 +314,94 @@ export default function AdminProdutosPage() {
     }
   }
 
-  function addVariantRow() {
-    setVariantRows((prev) => [...prev, { size: '', stock: 0, active: true }]);
-  }
+  // ── Números em pronta entrega ──────────────────────────────────────────
+  // O admin toca nos números que tem em estoque e informa a quantidade de cada
+  // um. Chuteiras (society, futsal, campo) já mostram 37 ao 45; qualquer outro
+  // número/tamanho entra pelo campo "Outro número".
+  const isChuteiraCat = ['society', 'futsal', 'campo'].includes(formData.category);
+  const baseSizes = isChuteiraCat ? Array.from({ length: 9 }, (_, i) => String(37 + i)) : [];
 
-  // Chuteiras (society, futsal, campo): preenche a numeração 37 ao 45 de uma vez.
-  // Só acrescenta os números que ainda não existem (não mexe nos já cadastrados)
-  // e já deixa as linhas ordenadas. Para números fora da faixa (35, 36, 46...)
-  // use "+ Adicionar tamanho".
-  function fillChuteiraSizes() {
-    setVariantRows((prev) => {
-      const have = new Set(prev.map((r) => String(r.size).trim()));
-      const added = [];
-      for (let n = 37; n <= 45; n += 1) {
-        if (!have.has(String(n))) added.push({ size: String(n), stock: 0, active: true });
-      }
-      const all = [...prev, ...added];
-      return all.sort((a, b) => {
-        const na = Number(a.size);
-        const nb = Number(b.size);
-        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-        if (Number.isFinite(na)) return -1;
-        if (Number.isFinite(nb)) return 1;
-        return String(a.size).localeCompare(String(b.size));
-      });
+  function sortSizeRows(list) {
+    return [...list].sort((a, b) => {
+      const na = Number(a.size);
+      const nb = Number(b.size);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      if (Number.isFinite(na)) return -1;
+      if (Number.isFinite(nb)) return 1;
+      return String(a.size).localeCompare(String(b.size));
     });
   }
 
-  function updateVariantRow(index, field, value) {
-    setVariantRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  function toggleSize(size) {
+    const key = String(size);
+    setVariantRows((prev) => {
+      const exists = prev.some((r) => String(r.size).trim() === key && r.active !== false);
+      if (exists) return prev.filter((r) => String(r.size).trim() !== key);
+      const withoutOld = prev.filter((r) => String(r.size).trim() !== key);
+      return sortSizeRows([...withoutOld, { size: key, stock: 1, active: true }]);
+    });
   }
 
-  function removeVariantRow(index) {
-    setVariantRows((prev) => prev.filter((_, i) => i !== index));
+  function setSizeStock(size, value) {
+    const key = String(size);
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    setVariantRows((prev) => prev.map((r) => (String(r.size).trim() === key ? { ...r, stock: n } : r)));
+  }
+
+  function selectAllBase() {
+    setVariantRows((prev) => {
+      const have = new Set(prev.filter((r) => r.active !== false).map((r) => String(r.size).trim()));
+      const rest = prev.filter((r) => !baseSizes.includes(String(r.size).trim()) || r.active !== false);
+      const added = baseSizes.filter((n) => !have.has(n)).map((n) => ({ size: n, stock: 1, active: true }));
+      return sortSizeRows([...rest, ...added]);
+    });
+  }
+
+  function clearSizes() {
+    setVariantRows([]);
+  }
+
+  function addCustomSize() {
+    const value = customSize.trim();
+    if (!value) return;
+    if (value.length > 20) {
+      showToast('Tamanho muito longo.', 'error');
+      return;
+    }
+    setVariantRows((prev) => {
+      if (prev.some((r) => String(r.size).trim().toLowerCase() === value.toLowerCase() && r.active !== false)) return prev;
+      const withoutOld = prev.filter((r) => String(r.size).trim().toLowerCase() !== value.toLowerCase());
+      return sortSizeRows([...withoutOld, { size: value, stock: 1, active: true }]);
+    });
+    setCustomSize('');
+  }
+
+  // Grava a lista inteira (PUT substitui tudo). Usada pelo botão "Salvar números"
+  // e automaticamente ao salvar/criar o produto.
+  async function persistVariants(productId) {
+    const rows = variantRows.filter((v) => v.active !== false);
+    const saved = await adminRequest(`/products/${productId}/variants`, {
+      method: 'PUT',
+      body: {
+        variants: rows.map((v) => ({
+          size: String(v.size).trim(),
+          stock: Number(v.stock) || 0,
+          active: true,
+        })),
+      },
+    });
+    setVariantRows(saved.map((v) => ({ ...v, active: !!v.active })));
+    return saved;
   }
 
   async function saveVariants() {
-    const sizes = variantRows.map((v) => v.size.trim());
-    if (sizes.some((s) => !s)) {
-      showToast('Preencha o tamanho de todas as linhas.', 'error');
-      return;
-    }
-    if (new Set(sizes).size !== sizes.length) {
-      showToast('Há tamanhos duplicados na lista.', 'error');
-      return;
-    }
-
+    if (!editingId) return;
     setVariantsBusy(true);
     try {
-      const saved = await adminRequest(`/products/${editingId}/variants`, {
-        method: 'PUT',
-        body: {
-          variants: variantRows.map((v) => ({
-            size: v.size.trim(),
-            stock: Number(v.stock) || 0,
-            active: !!v.active,
-          })),
-        },
-      });
-      setVariantRows(saved.map((v) => ({ ...v, active: !!v.active })));
-      showToast('Tamanhos e estoque salvos.', 'success');
+      await persistVariants(editingId);
+      showToast('Números e estoque salvos.', 'success');
     } catch (err) {
-      showToast(err.message || 'Erro ao salvar tamanhos. Tente novamente.', 'error');
+      showToast(err.message || 'Erro ao salvar os números. Tente novamente.', 'error');
     } finally {
       setVariantsBusy(false);
     }
@@ -422,6 +455,16 @@ export default function AdminProdutosPage() {
           // O produto já foi criado com sucesso — só avisa que a galeria
           // extra falhou, sem bloquear o fluxo.
           showToast(galleryErr.message || 'Produto criado, mas houve erro ao enviar as demais fotos da galeria.', 'error');
+        }
+      }
+
+      // Pronta entrega: grava os números marcados (em produto novo, usa o id recém-criado).
+      const savedId = editingId || result?.id;
+      if (formData.available_for_order && savedId && variantsLoaded) {
+        try {
+          await persistVariants(savedId);
+        } catch (variantErr) {
+          showToast(variantErr.message || 'Produto salvo, mas houve erro ao gravar os números. Edite o produto e salve de novo.', 'error');
         }
       }
 
@@ -644,79 +687,112 @@ export default function AdminProdutosPage() {
                   Pode marcar as duas.
                 </p>
 
-                {editingId && formData.available_for_order && (
+                {formData.available_for_order && (
                   <div className="field-full" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Tamanhos e estoque</p>
+                    <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Números em pronta entrega</p>
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-                      Cada linha é um tamanho com seu próprio estoque. Tamanhos com estoque 0 aparecem indisponíveis pro cliente. Nas chuteiras, use "Preencher 37 ao 45" e depois informe o estoque de cada número; para outros números, use "+ Adicionar tamanho".
+                      Toque nos números que você tem em estoque e informe quantos pares de cada. O cliente só consegue comprar direto os números marcados aqui.
                     </p>
 
                     {variantsLoading ? (
                       <p style={{ fontSize: 13, color: 'var(--muted)' }}>Carregando…</p>
                     ) : (
                       <>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {variantRows.map((row, i) => (
-                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                placeholder="Tamanho (ex: 38)"
-                                className="field-input"
-                                style={{ maxWidth: 140 }}
-                                value={row.size}
-                                onChange={(e) => updateVariantRow(i, 'size', e.target.value)}
-                              />
-                              <input
-                                type="number"
-                                placeholder="Estoque"
-                                className="field-input"
-                                style={{ maxWidth: 110 }}
-                                min="0"
-                                value={row.stock}
-                                onChange={(e) => updateVariantRow(i, 'stock', Number(e.target.value))}
-                              />
-                              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                                <input type="checkbox" checked={row.active} onChange={(e) => updateVariantRow(i, 'active', e.target.checked)} />
-                                Ativo
-                              </label>
-                              <button type="button" onClick={() => removeVariantRow(i)} className="btn-secondary" style={{ fontSize: 12, padding: '4px 8px', color: 'var(--red, #ef4444)' }}>
-                                Remover
-                              </button>
-                            </div>
-                          ))}
-                          {variantRows.length === 0 && (
-                            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum tamanho cadastrado ainda.</p>
-                          )}
-                        </div>
+                        {(() => {
+                          const activeRows = variantRows.filter((r) => r.active !== false);
+                          const activeKeys = new Set(activeRows.map((r) => String(r.size).trim()));
+                          const chipSizes = sortSizeRows(
+                            Array.from(new Set([...baseSizes, ...activeRows.map((r) => String(r.size).trim())])).map((n) => ({ size: n }))
+                          ).map((r) => r.size);
+                          return (
+                            <>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {chipSizes.map((size) => {
+                                  const on = activeKeys.has(size);
+                                  return (
+                                    <button
+                                      key={size}
+                                      type="button"
+                                      aria-pressed={on}
+                                      onClick={() => toggleSize(size)}
+                                      style={{
+                                        minWidth: 52, height: 44, padding: '0 12px', borderRadius: 6, cursor: 'pointer',
+                                        fontSize: 16, fontWeight: 600,
+                                        border: `1px solid ${on ? 'var(--ink)' : 'var(--border)'}`,
+                                        background: on ? 'var(--ink)' : '#fff',
+                                        color: on ? '#fff' : 'var(--ink)',
+                                      }}
+                                    >
+                                      {size}
+                                    </button>
+                                  );
+                                })}
+                                {chipSizes.length === 0 && (
+                                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum número ainda. Use "Outro número" abaixo.</p>
+                                )}
+                              </div>
 
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                          <button type="button" onClick={addVariantRow} className="btn-secondary" style={{ fontSize: 13 }}>
-                            + Adicionar tamanho
+                              {activeRows.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+                                  {activeRows.map((row) => (
+                                    <label key={row.size} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                                      <span style={{ fontWeight: 600, minWidth: 28 }}>{row.size}</span>
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="0"
+                                        className="field-input"
+                                        style={{ width: 76 }}
+                                        aria-label={`Quantidade do número ${row.size}`}
+                                        value={row.stock}
+                                        onChange={(e) => setSizeStock(row.size, e.target.value)}
+                                      />
+                                      <span style={{ color: 'var(--muted)' }}>pares</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                              {activeRows.length > 0 && (
+                                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Quantidade 0 deixa o número esgotado para o cliente.</p>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14, alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            placeholder="Outro número (ex: 36, 46, M)"
+                            className="field-input"
+                            style={{ maxWidth: 200 }}
+                            maxLength={20}
+                            value={customSize}
+                            onChange={(e) => setCustomSize(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSize(); } }}
+                          />
+                          <button type="button" onClick={addCustomSize} className="btn-secondary" style={{ fontSize: 13 }}>
+                            + Adicionar
                           </button>
-                          {['society', 'futsal', 'campo'].includes(formData.category) && (
-                            <button type="button" onClick={fillChuteiraSizes} className="btn-secondary" style={{ fontSize: 13 }}>
-                              Preencher 37 ao 45
+                          {isChuteiraCat && (
+                            <button type="button" onClick={selectAllBase} className="btn-secondary" style={{ fontSize: 13 }}>
+                              Marcar todos (37 ao 45)
                             </button>
                           )}
-                          <button type="button" onClick={saveVariants} className="btn-primary" style={{ fontSize: 13 }} disabled={variantsBusy}>
-                            {variantsBusy ? 'Salvando…' : 'Salvar tamanhos'}
+                          <button type="button" onClick={clearSizes} className="btn-secondary" style={{ fontSize: 13 }}>
+                            Limpar
                           </button>
+                          {editingId && (
+                            <button type="button" onClick={saveVariants} className="btn-primary" style={{ fontSize: 13 }} disabled={variantsBusy}>
+                              {variantsBusy ? 'Salvando…' : 'Salvar números'}
+                            </button>
+                          )}
                         </div>
+                        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+                          Os números também são salvos quando você clica em {editingId ? '"Salvar alterações"' : '"Criar produto"'}.
+                        </p>
                       </>
                     )}
                   </div>
-                )}
-
-                {editingId && formData.available_for_order && (
-                  <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
-                    Os campos "Tamanhos" e "Estoque" acima continuam existindo para compatibilidade, mas para produtos de pronta entrega o estoque real é o desta seção.
-                  </p>
-                )}
-
-                {!editingId && (
-                  <p className="field-full" style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    Salve o produto primeiro; depois, ao editá-lo, você poderá cadastrar os tamanhos e o estoque de cada um aqui.
-                  </p>
                 )}
 
                 {formError && <div className="error-box field-full">{formError}</div>}
