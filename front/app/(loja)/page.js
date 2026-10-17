@@ -1,6 +1,6 @@
 'use client';
 
-import HeroFinder from '@/components/store/HeroFinder';
+import Hero from '@/components/store/Hero';
 import OfferCarousel from '@/components/store/OfferCarousel';
 import BrandCircles from '@/components/store/BrandCircles';
 import FulfillmentTabs from '@/components/store/FulfillmentTabs';
@@ -13,7 +13,7 @@ import { BRANDS } from '@/lib/store';
 
 /**
  * Home enxuta, na ordem em que o cliente decide:
- * 1. hero de compra direta (disponibilidade + piso + numeração)
+ * 1. hero de marca + produto (Mizuno Morelia Neo)
  * 2. ofertas (carrossel do início)
  * 3. filtro por marca
  * 4. chuteiras: abas de pronta entrega e encomenda
@@ -25,7 +25,7 @@ import { BRANDS } from '@/lib/store';
 export default function HomePage() {
   return (
     <StoreIntroGate>
-      <HeroFinder />
+      <Hero />
       <OfferCarousel
         id="ofertas-inicio"
         title="Ofertas da semana"
