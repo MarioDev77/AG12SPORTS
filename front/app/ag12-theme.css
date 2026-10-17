@@ -801,3 +801,8 @@ nav[aria-label="Breadcrumb"] button { color: var(--ink) !important; text-decorat
   #productsGrid, .products-grid { gap: 8px; }
   .product-card .price-now { font-size: 17px; }
 }
+
+/* Numeração sem estoque (chuteiras): esmaecida e riscada */
+.size-btn.out { opacity: .5; text-decoration: line-through; }
+.size-btn.out.selected { opacity: 1; text-decoration: none; }
+.size-btn:disabled { opacity: .3; text-decoration: line-through; cursor: not-allowed; }

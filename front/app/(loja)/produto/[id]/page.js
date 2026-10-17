@@ -10,6 +10,22 @@ import { brl } from '@/lib/format';
 import { fulfillmentOf } from '@/lib/fulfillment.mjs';
 import ProductGallery from '@/components/ProductGallery';
 
+// Chuteiras (society, futsal, campo) sempre mostram a numeração 37 ao 45 para o
+// cliente escolher; números extras cadastrados no admin (35, 36, 46...) entram junto.
+const CHUTEIRA_CATS = ['society', 'futsal', 'campo'];
+const CHUTEIRA_BASE_SIZES = Array.from({ length: 9 }, (_, i) => String(37 + i));
+
+function sortSizes(list) {
+  return [...list].sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    if (Number.isFinite(na)) return -1;
+    if (Number.isFinite(nb)) return 1;
+    return String(a).localeCompare(String(b));
+  });
+}
+
 const WPP_NUMBER = '557598756510';
 const IG_URL     = 'https://www.instagram.com/ag12sports/';
 
@@ -74,10 +90,28 @@ export default function ProdutoPage() {
       .catch(() => setReviewsStatus('error'));
   }, [id]);
 
+  // ——— Numeração ———
+  // Chuteiras: sempre 37 ao 45 (+ extras cadastrados). product.sizes só traz os
+  // números com estoque; os demais ficam esmaecidos e só podem ser encomendados.
+  const fulfillmentInfo = fulfillmentOf(product);
+  const isChuteira = !!product && CHUTEIRA_CATS.includes(product.category);
+  const stockSizes = new Set(((product && product.sizes) || []).map(String));
+  const sizeOptions = !product
+    ? []
+    : isChuteira
+      ? sortSizes(Array.from(new Set([...CHUTEIRA_BASE_SIZES, ...stockSizes])))
+      : (product.sizes || []);
+  const inStock = (size) => !isChuteira || stockSizes.has(String(size));
+  const canPick = (size) => inStock(size) || fulfillmentInfo.encomenda || (fulfillmentInfo.known && !fulfillmentInfo.pronta);
+
   function handleBuyNow() {
     if (!product) return;
-    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+    if (sizeOptions.length > 0 && !selectedSize) {
       showToast('Selecione um tamanho antes de continuar.', 'error');
+      return;
+    }
+    if (selectedSize && !inStock(selectedSize)) {
+      showToast('Esse número não está em estoque. Encomende pelo WhatsApp.', 'error');
       return;
     }
     addToCart(product, selectedSize, qty);
@@ -86,8 +120,12 @@ export default function ProdutoPage() {
 
   function handleAddToCart() {
     if (!product) return;
-    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+    if (sizeOptions.length > 0 && !selectedSize) {
       showToast('Selecione um tamanho antes de continuar.', 'error');
+      return;
+    }
+    if (selectedSize && !inStock(selectedSize)) {
+      showToast('Esse número não está em estoque. Encomende pelo WhatsApp.', 'error');
       return;
     }
     addToCart(product, selectedSize, qty);
@@ -203,21 +241,33 @@ export default function ProdutoPage() {
           )}
 
           {/* Tamanhos */}
-          {product.sizes && product.sizes.length > 0 && (
+          {sizeOptions.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <p className="modal-sizes-label">Tamanhos</p>
+              <p className="modal-sizes-label">{isChuteira ? 'Numeração' : 'Tamanhos'}</p>
               <div className="modal-sizes-grid">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    className={`size-btn${String(size) === String(selectedSize) ? ' selected' : ''}`}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {sizeOptions.map((size) => {
+                  const available = inStock(size);
+                  const pickable = canPick(size);
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      disabled={!pickable}
+                      aria-disabled={!pickable}
+                      title={available ? undefined : (pickable ? 'Sem estoque — sob encomenda' : 'Indisponível')}
+                      className={`size-btn${String(size) === String(selectedSize) ? ' selected' : ''}${available || (fulfillmentInfo.known && !fulfillmentInfo.pronta) ? '' : ' out'}`}
+                      onClick={() => pickable && setSelectedSize(size)}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
+              {isChuteira && selectedSize && !inStock(selectedSize) && !(fulfillmentInfo.known && !fulfillmentInfo.pronta) && (
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
+                  O número {selectedSize} está sem estoque, mas dá para encomendar pelo WhatsApp.
+                </p>
+              )}
             </div>
           )}
 

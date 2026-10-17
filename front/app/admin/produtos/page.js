@@ -311,6 +311,29 @@ export default function AdminProdutosPage() {
     setVariantRows((prev) => [...prev, { size: '', stock: 0, active: true }]);
   }
 
+  // Chuteiras (society, futsal, campo): preenche a numeração 37 ao 45 de uma vez.
+  // Só acrescenta os números que ainda não existem (não mexe nos já cadastrados)
+  // e já deixa as linhas ordenadas. Para números fora da faixa (35, 36, 46...)
+  // use "+ Adicionar tamanho".
+  function fillChuteiraSizes() {
+    setVariantRows((prev) => {
+      const have = new Set(prev.map((r) => String(r.size).trim()));
+      const added = [];
+      for (let n = 37; n <= 45; n += 1) {
+        if (!have.has(String(n))) added.push({ size: String(n), stock: 0, active: true });
+      }
+      const all = [...prev, ...added];
+      return all.sort((a, b) => {
+        const na = Number(a.size);
+        const nb = Number(b.size);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+        if (Number.isFinite(na)) return -1;
+        if (Number.isFinite(nb)) return 1;
+        return String(a.size).localeCompare(String(b.size));
+      });
+    });
+  }
+
   function updateVariantRow(index, field, value) {
     setVariantRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   }
@@ -625,7 +648,7 @@ export default function AdminProdutosPage() {
                   <div className="field-full" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Tamanhos e estoque</p>
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-                      Cada linha é um tamanho com seu próprio estoque. Tamanhos com estoque 0 aparecem indisponíveis pro cliente.
+                      Cada linha é um tamanho com seu próprio estoque. Tamanhos com estoque 0 aparecem indisponíveis pro cliente. Nas chuteiras, use "Preencher 37 ao 45" e depois informe o estoque de cada número; para outros números, use "+ Adicionar tamanho".
                     </p>
 
                     {variantsLoading ? (
@@ -666,10 +689,15 @@ export default function AdminProdutosPage() {
                           )}
                         </div>
 
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                           <button type="button" onClick={addVariantRow} className="btn-secondary" style={{ fontSize: 13 }}>
                             + Adicionar tamanho
                           </button>
+                          {['society', 'futsal', 'campo'].includes(formData.category) && (
+                            <button type="button" onClick={fillChuteiraSizes} className="btn-secondary" style={{ fontSize: 13 }}>
+                              Preencher 37 ao 45
+                            </button>
+                          )}
                           <button type="button" onClick={saveVariants} className="btn-primary" style={{ fontSize: 13 }} disabled={variantsBusy}>
                             {variantsBusy ? 'Salvando…' : 'Salvar tamanhos'}
                           </button>
