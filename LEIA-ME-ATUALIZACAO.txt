@@ -1,0 +1,34 @@
+AG12 SPORTS — redesign preto e dourado (etapa 1) + abas pronta entrega / encomenda
+
+FRONT (pasta front/)
+NOVOS
+- app/ag12-theme.css                  tema (importado em app/layout.js, depois do globals.css)
+- lib/store.js                        WhatsApp, Instagram, marcas, ofertas, banners
+- components/Footer.js
+- components/store/HeroFinder.js      hero de compra direta
+- components/store/OfferCarousel.js   carrossel das artes de promoção (usado 2x na home)
+- components/store/BrandCircles.js    filtro visual por marca
+- components/store/FulfillmentTabs.js abas Pronta entrega / Encomenda
+- components/store/InfoBanners.js     rastreio, redes sociais, cartão
+- components/store/BrandShelf.js      prateleira por marca
+- components/store/HelpBlock.js       "Você joga, a gente entende" + WhatsApp
+- public/assets/img/info/*  public/assets/img/marcas/*
+ALTERADOS
+- app/layout.js (tema + zoom liberado), app/(loja)/layout.js, app/(loja)/page.js,
+  app/(loja)/produtos/page.js (filtros na URL), components/Navbar.js,
+  components/ProductCard.js, lib/useProducts.js,
+  app/globals.css (só o bloco da abertura foi trocado),
+  components/intro/CinematicIntro.js (abertura nova)
+- conta, checkout e produto/[id]: só o espaçamento do topo (navbar nova)
+REMOVIDO
+- components/intro/ParticleField.js
+SEM USO NA HOME (mantidos): PromoBanner, CategoryCarousel, SizeCarousel, HeroOffers
+
+BACKEND (pasta server/) — 2 arquivos, mudança só aditiva. PRECISA DE DEPLOY.
+- src/services/products.service.js
+- src/routes/products.js
+  A API passa a devolver availableForOrder e aceitar:
+    ?fulfillment=pronta|encomenda   (pronta = available_for_order = 1)
+    ?category=chuteiras             (society + futsal + campo)
+  Sem o deploy, as abas não separam produtos (o front não quebra, só não filtra).
+Não há migration nova.

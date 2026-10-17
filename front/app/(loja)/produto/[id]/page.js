@@ -131,7 +131,7 @@ export default function ProdutoPage() {
 
   if (loading) {
     return (
-      <div style={{ paddingTop: 120, textAlign: 'center', color: 'var(--muted)' }}>
+      <div style={{ paddingTop: 56, textAlign: 'center', color: 'var(--muted)' }}>
         <iconify-icon className="iconify" icon="mdi:loading" style={{ fontSize: 36, animation: 'spin 1s linear infinite' }} />
         <p style={{ marginTop: 12 }}>Carregando produto…</p>
       </div>
@@ -140,7 +140,7 @@ export default function ProdutoPage() {
 
   if (error || !product) {
     return (
-      <div style={{ paddingTop: 120, textAlign: 'center' }}>
+      <div style={{ paddingTop: 56, textAlign: 'center' }}>
         <iconify-icon className="iconify" icon="mdi:alert-circle-outline" style={{ fontSize: 48, color: 'var(--muted)' }} />
         <h2 style={{ marginTop: 16 }}>Produto não encontrado</h2>
         <p style={{ color: 'var(--muted)', marginTop: 8 }}>{error}</p>
@@ -156,7 +156,7 @@ export default function ProdutoPage() {
   const wppLink     = `https://wa.me/${WPP_NUMBER}?text=${encodeURIComponent(`Olá! Tenho interesse no produto: ${product.name}`)}`;
 
   return (
-    <div style={{ paddingTop: 100, maxWidth: 960, margin: '0 auto', padding: '100px 24px 60px' }}>
+    <div style={{ paddingTop: 0, maxWidth: 960, margin: '0 auto', padding: '40px 24px 60px' }}>
       {/* Breadcrumb */}
       <nav style={{ marginBottom: 24, fontSize: 13, color: 'var(--muted)' }} aria-label="Breadcrumb">
         <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>

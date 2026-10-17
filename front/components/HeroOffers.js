@@ -121,8 +121,31 @@ export default function HeroOffers() {
   return (
     <section id="heroOffers" aria-label="Ofertas em destaque">
       <div className="hero-offers-inner">
-        <p className="hero-offers-eyebrow">Loja especializada em futebol</p>
-        <h1 className="hero-offers-title">Ofertas em destaque</h1>
+        <div className="ag12-hero-banner">
+          <div className="ag12-hero-copy">
+            <span className="ag12-hero-kicker">AG12 SPORTS · PAIXÃO PELO JOGO</span>
+            <h1>Entre em campo com <em>atitude.</em></h1>
+            <p>Chuteiras, acessórios e estilo esportivo para acompanhar você em cada jogada.</p>
+            <div className="ag12-hero-ctas">
+              <a href="#productsSection" className="btn-primary">
+                <iconify-icon className="iconify" icon="mdi:shoe-cleat" style={{ fontSize: 17 }} />
+                Explorar produtos
+              </a>
+              <a href="/produtos" className="ag12-hero-secondary">Ver catálogo completo <span aria-hidden="true">→</span></a>
+            </div>
+            <div className="ag12-hero-proof">
+              <span><iconify-icon className="iconify" icon="mdi:check-circle-outline" /> Seleção esportiva</span>
+              <span><iconify-icon className="iconify" icon="mdi:lightning-bolt-outline" /> Pronto para o jogo</span>
+            </div>
+          </div>
+          <div className="ag12-hero-photo" aria-label="Parede com variedade de chuteiras esportivas" role="img">
+            <img src="/assets/img/hero.webp" alt="Variedade de chuteiras AG12 Sports" fetchPriority="high" />
+            <div className="ag12-hero-photo-tag"><strong>SEU JOGO.</strong><span>SEU ESTILO.</span></div>
+          </div>
+          <div className="ag12-hero-glow" aria-hidden="true" />
+        </div>
+        <p className="hero-offers-eyebrow">Escolhas da semana</p>
+        <h2 className="hero-offers-title">Ofertas em destaque</h2>
 
         <div className="hero-offers-carousel-wrap">
           <button

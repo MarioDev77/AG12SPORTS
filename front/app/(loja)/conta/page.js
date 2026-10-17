@@ -276,7 +276,7 @@ export default function ContaPage() {
 
   if (!isAuthenticated) {
     return (
-      <div style={{ paddingTop: 100, display: 'flex', justifyContent: 'center', padding: '100px 24px 60px' }}>
+      <div style={{ paddingTop: 0, display: 'flex', justifyContent: 'center', padding: '40px 24px 60px' }}>
         <div className="modal-content" style={{ width: '100%', maxWidth: 440 }}>
           <div className="checkout-body">
             <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'var(--bg)', borderRadius: 10, padding: 4 }}>
@@ -389,7 +389,7 @@ export default function ContaPage() {
   }
 
   return (
-    <div style={{ paddingTop: 100, maxWidth: 900, margin: '0 auto', padding: '100px 24px 60px' }}>
+    <div style={{ paddingTop: 0, maxWidth: 900, margin: '0 auto', padding: '40px 24px 60px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800 }}>Minha conta</h1>

@@ -342,7 +342,7 @@ export default function CheckoutPage() {
 
   if (!hydrated) {
     return (
-      <div style={{ paddingTop: 120, textAlign: 'center', color: 'var(--muted)' }}>
+      <div style={{ paddingTop: 56, textAlign: 'center', color: 'var(--muted)' }}>
         <iconify-icon className="iconify" icon="mdi:loading" style={{ fontSize: 36, animation: 'spin 1s linear infinite' }} />
       </div>
     );
@@ -350,7 +350,7 @@ export default function CheckoutPage() {
 
   if (!orderResult && items.length === 0) {
     return (
-      <div style={{ paddingTop: 120, textAlign: 'center', padding: '120px 24px 60px' }}>
+      <div style={{ paddingTop: 56, textAlign: 'center', padding: '56px 24px 60px' }}>
         <iconify-icon className="iconify" icon="mdi:cart-off" style={{ fontSize: 48, color: 'var(--muted)' }} />
         <h2 style={{ marginTop: 16 }}>Seu carrinho está vazio</h2>
         <p style={{ color: 'var(--muted)', marginTop: 8 }}>Adicione produtos antes de finalizar a compra.</p>
@@ -363,7 +363,7 @@ export default function CheckoutPage() {
 
   if (!isAuthenticated && !orderResult) {
     return (
-      <div style={{ paddingTop: 100, display: 'flex', justifyContent: 'center', padding: '100px 24px 60px' }}>
+      <div style={{ paddingTop: 0, display: 'flex', justifyContent: 'center', padding: '40px 24px 60px' }}>
         <div className="modal-content" style={{ width: '100%', maxWidth: 440 }}>
           <div className="checkout-body">
             <p className="checkout-section-title">Entre para continuar</p>
@@ -409,7 +409,7 @@ export default function CheckoutPage() {
   // ——— Sucesso ———
   if (orderResult) {
     return (
-      <div style={{ paddingTop: 100, display: 'flex', justifyContent: 'center', padding: '100px 24px 60px' }}>
+      <div style={{ paddingTop: 0, display: 'flex', justifyContent: 'center', padding: '40px 24px 60px' }}>
         <div className="modal-content" style={{ width: '100%', maxWidth: 560 }}>
           <div className="checkout-body">
             <div className="checkout-success">
@@ -449,7 +449,7 @@ export default function CheckoutPage() {
 
   // ——— Wizard ———
   return (
-    <div style={{ paddingTop: 100, display: 'flex', justifyContent: 'center', padding: '100px 24px 60px' }}>
+    <div style={{ paddingTop: 0, display: 'flex', justifyContent: 'center', padding: '40px 24px 60px' }}>
       <div className="modal-content" style={{ width: '100%', maxWidth: 680 }}>
         <div className="checkout-body">
           <div className="checkout-steps-row">

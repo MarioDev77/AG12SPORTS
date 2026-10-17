@@ -3,7 +3,10 @@
 const { pool } = require('../db/pool');
 
 // Whitelist de categorias válidas
-const VALID_CATS = new Set(['all', 'society', 'futsal', 'campo', 'tenis', 'acessorios', 'blusas', 'kits']);
+const VALID_CATS = new Set(['all', 'society', 'futsal', 'campo', 'tenis', 'acessorios', 'blusas', 'kits', 'chuteiras']);
+
+// "chuteiras" é um grupo (não uma categoria do banco): reúne os três pisos.
+const CHUTEIRA_SLUGS = ['society', 'futsal', 'campo'];
 
 // Whitelist de colunas para ORDER BY — evita SQL injection via sort param.
 const SORT_MAP = {
@@ -17,7 +20,8 @@ const SORT_MAP = {
 const PRODUCT_COLS = `
   p.id, p.name, p.brand, c.slug AS category, p.price, p.old_price,
   p.image_url AS image, p.description AS \`desc\`, p.sizes_json AS sizes,
-  p.sku, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.sold_qty
+  p.sku, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.sold_qty,
+  p.available_for_order
 `;
 
 const FROM_JOIN = `
@@ -49,7 +53,7 @@ const IMAGES_SUBQUERY = `(
  */
 async function listProducts({
   category, sort = 'newest', q = '', page = 1, limit = 12,
-  brand = '', minPrice, maxPrice, size = '',
+  brand = '', minPrice, maxPrice, size = '', fulfillment = '',
 } = {}) {
   const cat      = (category || 'all').toString().trim();
   const useAll   = !VALID_CATS.has(cat) || cat === 'all';
@@ -66,9 +70,20 @@ async function listProducts({
   const conditions = ['p.is_active = 1'];
   const params     = [];
 
-  if (!useAll) {
+  if (!useAll && cat === 'chuteiras') {
+    conditions.push(`c.slug IN (${CHUTEIRA_SLUGS.map(() => '?').join(', ')})`);
+    params.push(...CHUTEIRA_SLUGS);
+  } else if (!useAll) {
     conditions.push('c.slug = ?');
     params.push(cat);
+  }
+
+  // Disponibilidade: "pronta" = produto com estoque liberado para compra no
+  // site (available_for_order = 1); "encomenda" = o restante, sob consulta.
+  if (fulfillment === 'pronta') {
+    conditions.push('p.available_for_order = 1');
+  } else if (fulfillment === 'encomenda') {
+    conditions.push('p.available_for_order = 0');
   }
 
   if (useSearch) {
@@ -223,6 +238,7 @@ function mapProduct(r) {
           heightCm: r.height_cm == null ? null : Number(r.height_cm),
         },
     soldQty: Number(r.sold_qty || 0),
+    availableForOrder: !!Number(r.available_for_order || 0),
   };
 }
 

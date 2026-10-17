@@ -89,7 +89,14 @@ export default function ProductCard({ product, onToast }) {
   return (
     <div className="product-card" onPointerDown={handlePointerDown} onClick={handleCardClick}>
       <div className="product-img-wrap">
-        {hasDiscount && <span className="product-badge off">-{discountPct}%</span>}
+        <div className="product-badges">
+          {typeof product.availableForOrder === 'boolean' && (
+            <span className={`product-badge ${product.availableForOrder ? 'ready' : 'order'}`}>
+              {product.availableForOrder ? 'Pronta entrega' : 'Encomenda'}
+            </span>
+          )}
+          {hasDiscount && <span className="product-badge off">-{discountPct}%</span>}
+        </div>
         <button
           type="button"
           className={`wish-btn${wished ? ' wished' : ''}`}
@@ -167,11 +174,11 @@ export default function ProductCard({ product, onToast }) {
         <h3 className="name">{product.name || ''}</h3>
         {Array.isArray(product.sizes) && product.sizes.length > 0 && (
           <div className="card-sizes" aria-label="Tamanhos disponíveis">
-            {product.sizes.slice(0, 4).map((size) => (
+            {product.sizes.slice(0, 5).map((size) => (
               <span key={size} className="card-size-chip">{size}</span>
             ))}
-            {product.sizes.length > 4 && (
-              <span className="card-sizes-more">+{product.sizes.length - 4}</span>
+            {product.sizes.length > 5 && (
+              <span className="card-sizes-more">+{product.sizes.length - 5}</span>
             )}
           </div>
         )}

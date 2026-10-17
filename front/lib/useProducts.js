@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRequest } from '@/lib/api';
+import { CHUTEIRA_CATS } from '@/lib/store';
 
 const PAGE_LIMIT = 12;
 
@@ -19,9 +20,24 @@ function buildQuery(params) {
  * vanilla. Mantém os mesmos parâmetros de query (category, sort, q, page,
  * limit) e a mesma filtragem de imagens válidas.
  */
+/**
+ * Rede de segurança: se a API ainda for a versão antiga (sem o grupo
+ * "chuteiras" nem o filtro de disponibilidade), o front filtra o que chegou
+ * para as abas continuarem corretas. Com a API nova isso não remove nada.
+ */
+function matchesClientFilters(p, category, fulfillment) {
+  if (category === 'chuteiras' && p.category && !CHUTEIRA_CATS.includes(p.category)) return false;
+  if (fulfillment && typeof p.availableForOrder === 'boolean') {
+    if (fulfillment === 'pronta' && !p.availableForOrder) return false;
+    if (fulfillment === 'encomenda' && p.availableForOrder) return false;
+  }
+  return true;
+}
+
 export function useProducts({
   category = 'all', sort = 'newest', search = '',
   brand = '', minPrice = '', maxPrice = '', size = '',
+  fulfillment = '', limit = PAGE_LIMIT,
 } = {}) {
   const [products, setProducts] = useState([]);
   const [page, setPage] = useState(1);
@@ -39,7 +55,7 @@ export function useProducts({
     else setIsLoadingMore(true);
 
     try {
-      const params = { page: targetPage, limit: PAGE_LIMIT };
+      const params = { page: targetPage, limit };
       if (category !== 'all') params.category = category;
       if (sort) params.sort = sort;
       if (search) params.q = search;
@@ -47,11 +63,12 @@ export function useProducts({
       if (minPrice !== '' && minPrice !== null && minPrice !== undefined) params.minPrice = minPrice;
       if (maxPrice !== '' && maxPrice !== null && maxPrice !== undefined) params.maxPrice = maxPrice;
       if (size) params.size = size;
+      if (fulfillment) params.fulfillment = fulfillment;
 
       const data = await apiRequest(`/products${buildQuery(params)}`);
       if (requestId !== requestIdRef.current) return; // resposta obsoleta
 
-      const rawProducts = (data && data.products) || [];
+      const rawProducts = ((data && data.products) || []).filter((p) => matchesClientFilters(p, category, fulfillment));
       const more = !!(data && data.hasMore);
 
       setHasMore(more);
@@ -74,14 +91,14 @@ export function useProducts({
     } finally {
       if (requestId === requestIdRef.current) setIsLoadingMore(false);
     }
-  }, [category, sort, search, brand, minPrice, maxPrice, size]);
+  }, [category, sort, search, brand, minPrice, maxPrice, size, fulfillment, limit]);
 
   // Sempre que filtro/sort/busca mudam, reseta para a página 1.
   useEffect(() => {
     setPage(1);
     fetchPage(1, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, sort, search, brand, minPrice, maxPrice, size]);
+  }, [category, sort, search, brand, minPrice, maxPrice, size, fulfillment, limit]);
 
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return;

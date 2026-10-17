@@ -12,7 +12,7 @@ const { getUserById } = require('../services/users.service');
 const router = express.Router();
 
 // ─── Parâmetros de query aceitos (whitelist) ──────────────────────────────────
-const VALID_CATEGORIES = new Set(['all', 'society', 'futsal', 'campo', 'tenis', 'acessorios', 'blusas', 'kits']);
+const VALID_CATEGORIES = new Set(['all', 'society', 'futsal', 'campo', 'tenis', 'acessorios', 'blusas', 'kits', 'chuteiras']);
 const VALID_SORT = new Set(['price_asc', 'price_desc', 'name_asc', 'newest']);
 
 const ProductQuerySchema = z.object({
@@ -25,6 +25,7 @@ const ProductQuerySchema = z.object({
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
   size:     z.string().max(10).optional(),
+  fulfillment: z.enum(['pronta', 'encomenda']).optional(),
 });
 
 // ─── GET /api/products/meta — dados p/ montar os filtros do catálogo ────────
@@ -46,7 +47,7 @@ router.get('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid query parameters' });
     }
 
-    const { category, sort, q, page, limit, brand, minPrice, maxPrice, size } = parsed.data;
+    const { category, sort, q, page, limit, brand, minPrice, maxPrice, size, fulfillment } = parsed.data;
 
     const safeCategory = VALID_CATEGORIES.has(category) ? category : 'all';
     const safeSort     = VALID_SORT.has(sort) ? sort : 'newest';
@@ -61,6 +62,7 @@ router.get('/', async (req, res, next) => {
       minPrice,
       maxPrice,
       size:     size || '',
+      fulfillment: fulfillment || '',
     });
 
     return res.json({ products, total, hasMore, page, limit });

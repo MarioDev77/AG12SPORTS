@@ -2,40 +2,61 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useWish } from '@/context/WishContext';
 import { useCart } from '@/context/CartContext';
+import { BRANDS } from '@/lib/store';
 
-const CATEGORIES = [
-  { slug: 'society', label: 'Society' },
-  { slug: 'futsal', label: 'Futsal' },
-  { slug: 'campo', label: 'Campo' },
-  { slug: 'acessorios', label: 'Acessórios' },
-  { slug: 'blusas', label: 'Blusas' },
-  { slug: 'kits', label: 'Kits de Treino' },
+/**
+ * Grupos do menu de categorias. A ordem importa: primeiro como o cliente
+ * quer comprar (pronta entrega / encomenda), depois o piso, depois a marca.
+ */
+const NAV_GROUPS = [
+  {
+    label: 'Chuteiras',
+    items: [
+      { label: 'Pronta entrega', href: '/produtos?cat=chuteiras&tipo=pronta', highlight: true },
+      { label: 'Encomenda', href: '/produtos?cat=chuteiras&tipo=encomenda', highlight: true },
+      { label: 'Society', href: '/produtos?cat=society' },
+      { label: 'Futsal', href: '/produtos?cat=futsal' },
+      { label: 'Campo', href: '/produtos?cat=campo' },
+    ],
+  },
+  {
+    label: 'Marcas',
+    items: BRANDS.map((b) => ({ label: b.name, href: `/produtos?brand=${encodeURIComponent(b.name)}` })),
+  },
+  {
+    label: 'Mais',
+    items: [
+      { label: 'Acessórios', href: '/produtos?cat=acessorios' },
+      { label: 'Blusas', href: '/produtos?cat=blusas' },
+      { label: 'Kits de treino', href: '/produtos?cat=kits' },
+    ],
+  },
 ];
 
 /**
- * Navbar — réplica do <nav id="navbar"> do index.html original, incluindo
- * o comportamento de "scrolled" (troca de fundo após 40px de scroll) e o
- * menu mobile. onOpenCart/onOpenWish vêm de fora porque os painéis (cart
- * panel / wish panel) vivem no layout da loja, não na navbar.
+ * Navbar em duas linhas: marca, busca e ações em cima; categorias embaixo
+ * (no celular, a segunda linha vira uma fita de arrastar). Fundo sempre
+ * sólido — sem troca por scroll — para o conteúdo nunca ficar sob texto
+ * ilegível.
  */
 export default function Navbar({ onOpenWish, onOpenCart }) {
-  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navSearch, setNavSearch] = useState('');
   const { count: wishCount } = useWish();
   const { count: cartCount } = useCart();
   const router = useRouter();
 
+  // Esc fecha o menu lateral.
   useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 40);
-    }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    if (!mobileOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
 
   function handleNavSearchSubmit(e) {
     e.preventDefault();
@@ -45,18 +66,18 @@ export default function Navbar({ onOpenWish, onOpenCart }) {
 
   return (
     <>
-      <nav id="navbar" className={scrolled ? 'scrolled' : ''} role="navigation" aria-label="Navegação principal">
-        <div className="nav-inner">
-          <Link href="/" className="nav-logo" aria-label="AG12 Sports — Início">
-            <img src="/ag12-sports-logo.jpeg" alt="AG12 Sports" className="nav-logo-mark" />
-            <span className="nav-brand">AG12 SPORTS</span>
+      <header className="ag-nav">
+        <div className="ag-wrap ag-nav-top">
+          <Link href="/" className="ag-logo" aria-label="AG12 Sports, página inicial">
+            <Image src="/ag12-sports-logo.jpeg" alt="" width={44} height={44} className="ag-logo-mark" priority />
+            <span className="ag-logo-word">AG<b>12</b><small>SPORTS</small></span>
           </Link>
 
-          <form className="nav-search-bar" role="search" onSubmit={handleNavSearchSubmit}>
-            <iconify-icon className="nav-search-icon iconify" icon="mdi:magnify" aria-hidden="true" />
+          <form className="ag-search" role="search" onSubmit={handleNavSearchSubmit}>
+            <iconify-icon className="iconify ag-search-icon" icon="mdi:magnify" aria-hidden="true" />
             <input
               type="search"
-              placeholder="Buscar por..."
+              placeholder="Buscar chuteira, marca ou modelo"
               aria-label="Buscar produto"
               autoComplete="off"
               spellCheck="false"
@@ -65,60 +86,82 @@ export default function Navbar({ onOpenWish, onOpenCart }) {
             />
           </form>
 
-          <div className="nav-links" role="menubar">
-            {CATEGORIES.map((c) => (
-              <Link key={c.slug} href={`/produtos?cat=${c.slug}`} className="nav-link cat-tab" role="menuitem">
-                {c.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="nav-actions">
-            <button className="nav-cart-btn" onClick={onOpenWish} aria-label="Favoritos" style={{ position: 'relative' }} title="Favoritos">
-              <iconify-icon className="iconify" icon="mdi:heart-outline" style={{ fontSize: 18 }} />
-              <span aria-label="favoritos salvos">{wishCount > 0 ? wishCount : ''}</span>
+          <div className="ag-nav-actions">
+            <button type="button" className="ag-icon-btn ag-hide-sm" onClick={onOpenWish} aria-label={`Favoritos${wishCount ? `, ${wishCount} itens` : ''}`}>
+              <iconify-icon className="iconify" icon="mdi:heart-outline" style={{ fontSize: 22 }} />
+              {wishCount > 0 && <span className="ag-badge">{wishCount}</span>}
             </button>
-            <button className="nav-cart-btn" onClick={onOpenCart} aria-label="Carrinho de compras" style={{ position: 'relative' }} title="Carrinho">
-              <iconify-icon className="iconify" icon="mdi:cart-outline" style={{ fontSize: 18 }} />
-              <span aria-label="itens no carrinho">{cartCount > 0 ? cartCount : ''}</span>
-            </button>
-            <Link href="/conta" className="nav-cart-btn" aria-label="Minha conta" title="Minha conta" style={{ textDecoration: 'none' }}>
-              <iconify-icon className="iconify" icon="mdi:account-outline" style={{ fontSize: 18 }} />
+            <Link href="/conta" className="ag-icon-btn ag-hide-sm" aria-label="Minha conta e pedidos">
+              <iconify-icon className="iconify" icon="mdi:account-outline" style={{ fontSize: 22 }} />
             </Link>
+            <button type="button" className="ag-icon-btn" onClick={onOpenCart} aria-label={`Carrinho${cartCount ? `, ${cartCount} itens` : ''}`}>
+              <iconify-icon className="iconify" icon="mdi:cart-outline" style={{ fontSize: 22 }} />
+              {cartCount > 0 && <span className="ag-badge">{cartCount}</span>}
+            </button>
             <button
-              className="nav-hamburger"
-              onClick={() => setMobileOpen((v) => !v)}
+              type="button"
+              className="ag-icon-btn ag-show-sm"
+              onClick={() => setMobileOpen(true)}
               aria-label="Abrir menu"
               aria-expanded={mobileOpen}
+              aria-controls="mobileMenu"
             >
-              <iconify-icon className="iconify" icon="mdi:menu" style={{ fontSize: 20 }} />
+              <iconify-icon className="iconify" icon="mdi:menu" style={{ fontSize: 24 }} />
             </button>
           </div>
         </div>
-      </nav>
 
-      <div id="mobileMenu" className={mobileOpen ? 'open' : ''} role="dialog" aria-label="Menu de navegação" aria-modal="true">
+        <nav className="ag-subnav" aria-label="Categorias">
+          <ul className="ag-wrap ag-subnav-list">
+            {NAV_GROUPS.map((g, gi) => (
+              <li key={g.label} className="ag-subnav-group" role="presentation">
+                {gi > 0 && <span className="ag-subnav-sep" aria-hidden="true" />}
+                <ul aria-label={g.label}>
+                  {g.items.map((it) => (
+                    <li key={it.label}>
+                      <Link href={it.href} className={`ag-subnav-link${it.highlight ? ' is-key' : ''}`}>{it.label}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
+
+      <div id="mobileMenu" className={mobileOpen ? 'open' : ''} role="dialog" aria-label="Menu de navegação" aria-modal="true" aria-hidden={!mobileOpen}>
         <div className="mobile-backdrop" onClick={() => setMobileOpen(false)} />
         <div id="mobileMenuPanel">
           <div className="mobile-header">
             <span className="mobile-title">Menu</span>
-            <button className="mobile-close" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
-              <iconify-icon className="iconify" icon="mdi:close" style={{ fontSize: 18 }} />
+            <button type="button" className="mobile-close" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
+              <iconify-icon className="iconify" icon="mdi:close" style={{ fontSize: 20 }} />
             </button>
           </div>
-          {CATEGORIES.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/produtos?cat=${c.slug}`}
-              className="mobile-link cat-tab"
-              onClick={() => setMobileOpen(false)}
-            >
-              {c.label}
-            </Link>
+
+          {NAV_GROUPS.map((g) => (
+            <div key={g.label} className="mobile-group">
+              <p className="mobile-group-title">{g.label}</p>
+              {g.items.map((it) => (
+                <Link key={it.label} href={it.href} className="mobile-link" tabIndex={mobileOpen ? 0 : -1} onClick={() => setMobileOpen(false)}>
+                  {it.label}
+                </Link>
+              ))}
+            </div>
           ))}
-          <Link href="/produtos" className="mobile-link accent" onClick={() => setMobileOpen(false)}>
-            ← Ver todos os produtos
-          </Link>
+
+          <div className="mobile-group">
+            <p className="mobile-group-title">Minha área</p>
+            <button type="button" className="mobile-link" tabIndex={mobileOpen ? 0 : -1} onClick={() => { setMobileOpen(false); onOpenWish(); }}>
+              Favoritos{wishCount > 0 ? ` (${wishCount})` : ''}
+            </button>
+            <Link href="/conta" className="mobile-link" tabIndex={mobileOpen ? 0 : -1} onClick={() => setMobileOpen(false)}>
+              Minha conta e pedidos
+            </Link>
+            <Link href="/produtos" className="mobile-link accent" tabIndex={mobileOpen ? 0 : -1} onClick={() => setMobileOpen(false)}>
+              Ver todos os produtos
+            </Link>
+          </div>
         </div>
       </div>
     </>
